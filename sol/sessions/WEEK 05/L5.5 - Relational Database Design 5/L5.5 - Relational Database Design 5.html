@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>DBMS — Week 05 — L5.5: Relational Database Design/5 — Study Notes</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}]})">
+        </script>
+    <link rel="stylesheet" href="../../../../scr/ui/ui.css" />
+</head>
+
+<body>
+    <div class="assignment-container">
+        <div class="gcb-assessment-title">WEEK 05 — L5.5: Relational Database Design/5 — Study Notes</div>
+        <div class="assessment-top-info">
+            <strong>Week:</strong> 05 |
+            <strong>Lecture:</strong> L5.5 |
+            <strong>Topics:</strong> Lossless Join Decomposition (T5.1), Dependency Preservation, Canonical Cover
+            (T5.2), Dependency Preservation Test (T5.5)<br />
+            <strong>Prerequisites:</strong> Functional dependencies, decomposition, attribute closure, BCNF/3NF.<br />
+            <strong>Learning Outcomes:</strong> Test if a decomposition is lossless, test if a decomposition preserves
+            dependencies, understand the trade‑offs, and apply algorithms.
+        </div>
+
+        <!-- Concept 17: Lossless Join Decomposition (Tutorial 5.1) -->
+        <div class="concept-card">
+            <h2>Tutorial 5.1: Lossless Join Decomposition</h2>
+            <h3>Definition</h3>
+            <p>A decomposition of a relation \( R \) into \( R_1 \) and \( R_2 \) is <strong>lossless join</strong> if,
+                for every instance \( r \) of \( R \), the natural join of the projections \( \pi_{R_1}(r) \) and \(
+                \pi_{R_2}(r) \) yields exactly \( r \) (no spurious tuples and no missing tuples).</p>
+
+            <h3>Explanation</h3>
+            <p>Lossless join is mandatory for any decomposition that is to be used in practice; otherwise, information
+                is lost. The sufficient condition for a binary decomposition is:</p>
+            <ul>
+                <li>The union of the attributes of \( R_1 \) and \( R_2 \) equals the attributes of \( R \) (i.e., all
+                    attributes are covered).</li>
+                <li>The intersection of \( R_1 \) and \( R_2 \) is non‑empty.</li>
+                <li>The intersection attributes form a superkey for either \( R_1 \) or \( R_2 \) (or both).</li>
+            </ul>
+            <p>Formally, if \( I = R_1 \cap R_2 \), then the decomposition is lossless if \( I \rightarrow R_1 \) or \(
+                I \rightarrow R_2 \) (i.e., \( I \) is a superkey of \( R_1 \) or \( R_2 \)).</p>
+            <p>For decompositions into more than two relations, we can use the chase algorithm or repeatedly apply the
+                binary test.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>When you split a table and later join it, you must not create rows that did not exist originally. The
+                common attributes act as a “glue”; if that glue uniquely identifies rows on one side, no spurious
+                combinations appear.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Lossless join</strong>: Natural join recovers original relation.</li>
+                <li><strong>Lossy decomposition</strong>: Join produces extra (spurious) tuples.</li>
+                <li><strong>Superkey condition</strong>: Intersection must be a superkey in at least one of the
+                    decomposed relations.</li>
+            </ul>
+
+            <h3>Worked Example 1 (Lossless)</h3>
+            <p>\( R(A,B,C) \) with FDs \( A \rightarrow B \). Decompose into \( R_1(A,B) \) and \( R_2(A,C) \).</p>
+            <p>Intersection = \( \{A\} \). Is \( A \) a superkey of \( R_1 \)? Yes, because \( A \rightarrow B \) holds,
+                so \( A \) determines all attributes of \( R_1 \). Therefore lossless.</p>
+
+            <h3>Worked Example 2 (Lossy)</h3>
+            <p>\( R(A,B,C) \) with no FDs (or only trivial). Decompose into \( R_1(A,B) \) and \( R_2(B,C) \).
+                Intersection = \( \{B\} \). Is \( B \) a superkey of either? No, because there is no FD that says \( B
+                \) determines \( A \) or \( C \). Hence lossy. Indeed, joining the projections may produce spurious
+                tuples.</p>
+            <p>Instance: \( R = \{(1,2,3), (4,2,5)\} \). Projections: \( R_1 = \{(1,2), (4,2)\} \), \( R_2 = \{(2,3),
+                (2,5)\} \). Natural join on \( B \) yields \( (1,2,3), (1,2,5), (4,2,3), (4,2,5) \) – two extra tuples.
+            </p>
+
+            <h3>Common Pitfalls</h3>
+            <ul>
+                <li>Assuming that if the intersection is a key in the original relation, it is lossless – not
+                    sufficient; must be a key in the decomposed relation.</li>
+                <li>Forgetting that the condition is sufficient but not necessary for binary decompositions? Actually it
+                    is necessary and sufficient for binary decompositions when FDs are given? The condition
+                    (intersection is a superkey of one side) is sufficient; it is also necessary if we require
+                    losslessness for all instances, but there are edge cases where it might hold without that condition?
+                    In standard theory, the condition is necessary and sufficient for binary decompositions under the
+                    assumption that the FDs are the only constraints. We'll stick to the sufficient condition as taught.
+                </li>
+            </ul>
+
+            <h3>How to Verify</h3>
+            <p>Compute the intersection, then compute its closure using the given FDs (applied to the whole schema). If
+                the closure includes all attributes of one of the decomposed relations, then lossless.</p>
+
+            <h3>Practice Hints</h3>
+            <p>Always list the intersection attributes. Then check if they determine all attributes of \( R_1 \) or all
+                of \( R_2 \). If the intersection is empty, decomposition is always lossy.</p>
+        </div>
+
+        <!-- Concept 18: Dependency Preservation -->
+        <div class="concept-card">
+            <h2>18. Dependency Preservation</h2>
+            <h3>Definition</h3>
+            <p>A decomposition of \( R \) into \( R_1, R_2, \dots, R_n \) is <strong>dependency preserving</strong> if
+                the union of the projections of \( F^+ \) onto each \( R_i \) is equivalent to \( F^+ \). In simpler
+                terms, every functional dependency in \( F \) can be checked on the individual decomposed relations
+                without having to perform a join.</p>
+
+            <h3>Explanation</h3>
+            <p>When we decompose, we lose the ability to directly enforce FDs that involve attributes from different
+                relations unless we take a join (which is expensive). A dependency‑preserving decomposition ensures that
+                each FD is implied by the FDs that hold on the individual relations. This is desirable for performance
+                (constraints can be checked locally).</p>
+            <p>Testing dependency preservation: For each FD \( \alpha \rightarrow \beta \) in \( F \), compute \(
+                \alpha^+ \) using the FDs that are projected onto the decomposed relations, but using a specialized
+                algorithm that iterates over the relations. Alternatively, use the following approach:</p>
+            <ol>
+                <li>Let \( result = \alpha \).</li>
+                <li>While \( result \) changes:
+                    <ul>
+                        <li>For each decomposed relation \( R_i \), compute \( result' = (result \cap R_i)^+ \) with
+                            respect to \( F \) (or the projected FDs), then take the intersection with \( R_i \) again,
+                            and add to \( result \).</li>
+                    </ul>
+                </li>
+                <li>If \( \beta \subseteq result \) at the end, then the FD is preserved.</li>
+            </ol>
+            <p>If all FDs in \( F \) are preserved, the decomposition is dependency preserving.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Imagine you have a set of rules (FDs). After splitting the data into separate tables, you want each rule
+                to be checkable using only the columns in one table. If a rule requires columns from multiple tables,
+                you have to join them to check it, which is inefficient.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Projection of FDs</strong>: For a relation \( R_i \), \( \pi_{R_i}(F) \) = all FDs in \( F^+
+                    \) that involve only attributes from \( R_i \).</li>
+                <li><strong>Dependency preserving</strong>: \( F^+ = (\pi_{R_1}(F) \cup \pi_{R_2}(F) \cup \dots \cup
+                    \pi_{R_n}(F))^+ \).</li>
+            </ul>
+
+            <h3>Example</h3>
+            <p>\( R(A,B,C) \), \( F = \{ A \rightarrow B, B \rightarrow C \} \). Decompose into \( R_1(A,B) \) and \(
+                R_2(B,C) \).</p>
+            <ul>
+                <li>\( \pi_{R_1}(F) = \{ A \rightarrow B \} \).</li>
+                <li>\( \pi_{R_2}(F) = \{ B \rightarrow C \} \).</li>
+                <li>\( A \rightarrow C \) is implied by transitivity but is not in the projection; however, we can check
+                    \( A \rightarrow C \) by using \( A \rightarrow B \) on \( R_1 \) and \( B \rightarrow C \) on \(
+                    R_2 \). The algorithm would show that it is preserved. So the decomposition is dependency
+                    preserving.</li>
+            </ul>
+            <p>Counterexample: \( R(A,B,C) \), \( F = \{ AB \rightarrow C, C \rightarrow A \} \). Decompose into \(
+                R_1(A,C) \) and \( R_2(B,C) \). Intersection = \( C \). Is \( C \) a superkey of \( R_1 \)? \( C
+                \rightarrow A \) holds, so yes, lossless. But is \( AB \rightarrow C \) preserved? The projection on \(
+                R_1 \) gives \( C \rightarrow A \) (and trivial). Projection on \( R_2 \) gives trivial only. There is
+                no way to check \( AB \rightarrow C \) without joining. Hence not dependency preserving.</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: “If each FD’s attributes are contained in some relation, the decomposition is
+                        dependency preserving.”</strong> (Correction: Not sufficient; the FD must be implied by the
+                    projected FDs, which may require transitivity across relations.)</li>
+                <li><strong>Misconception: “BCNF always preserves dependencies.”</strong> (Correction: BCNF may lose
+                    dependencies; 3NF is designed to preserve them.)</li>
+            </ul>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • Dependency preservation avoids expensive joins for constraint checking.<br />
+                • Test using attribute closure with iterative refinement across relations.<br />
+                • 3NF decomposition can always be dependency preserving; BCNF may not.<br />
+                • Lossless join is mandatory; dependency preservation is highly desirable but sometimes sacrificed.
+            </p>
+        </div>
+
+        <!-- Tutorial 5.5: Dependency Preservation (detailed algorithm) -->
+        <div class="concept-card">
+            <h2>Tutorial 5.5: Dependency Preservation Test</h2>
+            <h3>Algorithm / Procedure</h3>
+            <p>Given a decomposition \( R_1, R_2, \dots, R_k \) of \( R \) and a set of FDs \( F \), to test if an FD \(
+                \alpha \rightarrow \beta \) is preserved:</p>
+            <ol>
+                <li>Set \( result = \alpha \).</li>
+                <li>Repeat until \( result \) does not change:
+                    <ol type="a">
+                        <li>For each \( R_i \) in the decomposition:
+                            <ul>
+                                <li>Let \( T = result \cap R_i \).</li>
+                                <li>Compute \( T^+ \) with respect to \( F \) (the original FD set).</li>
+                                <li>Set \( result = result \cup (T^+ \cap R_i) \).</li>
+                            </ul>
+                        </li>
+                    </ol>
+                </li>
+                <li>If \( \beta \subseteq result \), then \( \alpha \rightarrow \beta \) is preserved.</li>
+            </ol>
+            <p>If all FDs in \( F \) are preserved, the decomposition is dependency preserving.</p>
+
+            <h3>Worked Example 1</h3>
+            <p>\( R(A,B,C,D) \), \( F = \{ A \rightarrow B, B \rightarrow C, C \rightarrow D \} \). Decompose into \(
+                R_1(A,B) \), \( R_2(B,C) \), \( R_3(C,D) \). Test \( A \rightarrow D \).</p>
+            <ul>
+                <li>Start result = {A}.</li>
+                <li>Iteration 1:
+                    <ul>
+                        <li>For \( R_1 \): \( T = \{A\} \cap \{A,B\} = \{A\} \). Compute \( T^+ = \{A,B\} \) (using \( A
+                            \rightarrow B \)). Intersection with \( R_1 \) = \{A,B\}. Add to result → result = \{A,B\}.
+                        </li>
+                        <li>For \( R_2 \): \( T = \{A,B\} \cap \{B,C\} = \{B\} \). \( T^+ = \{B,C\} \) (using \( B
+                            \rightarrow C \)). Intersection with \( R_2 \) = \{B,C\}. Add → result = \{A,B,C\}.</li>
+                        <li>For \( R_3 \): \( T = \{A,B,C\} \cap \{C,D\} = \{C\} \). \( T^+ = \{C,D\} \). Intersection =
+                            \{C,D\}. Add → result = \{A,B,C,D\}.</li>
+                    </ul>
+                </li>
+                <li>Now result contains D, so \( A \rightarrow D \) is preserved.</li>
+            </ul>
+
+            <h3>Worked Example 2 (Not preserved)</h3>
+            <p>\( R(A,B,C) \), \( F = \{ AB \rightarrow C, C \rightarrow A \} \). Decompose into \( R_1(A,C) \), \(
+                R_2(B,C) \). Test \( AB \rightarrow C \).</p>
+            <ul>
+                <li>Start result = {A,B}.</li>
+                <li>Iteration 1:
+                    <ul>
+                        <li>\( R_1 \): \( T = \{A,B\} \cap \{A,C\} = \{A\} \). \( A^+ \) using F: from \( C \rightarrow
+                            A \) we don't get C from A alone; no FD with left side A. So \( T^+ = \{A\} \). Intersection
+                            = \{A\}. No change.</li>
+                        <li>\( R_2 \): \( T = \{A,B\} \cap \{B,C\} = \{B\} \). \( B^+ = \{B\} \). No change.</li>
+                    </ul>
+                </li>
+                <li>Result remains {A,B}. Does not contain C. So \( AB \rightarrow C \) is not preserved.</li>
+            </ul>
+
+            <h3>Common Pitfalls</h3>
+            <ul>
+                <li>Forgetting to compute \( T^+ \) using the original \( F \), not just the projected FDs.</li>
+                <li>Not iterating until convergence; the algorithm may need multiple passes.</li>
+            </ul>
+
+            <h3>Practice Hints</h3>
+            <p>This algorithm is polynomial and efficient. Use it for exam problems. Always write down the intermediate
+                result sets.</p>
+        </div>
+
+        <!-- Tutorial 5.2: Canonical Cover (already covered in L5.4, but we provide a concise procedure here) -->
+        <div class="concept-card">
+            <h2>Tutorial 5.2: Canonical Cover (Recap)</h2>
+            <h3>Algorithm / Procedure</h3>
+            <ol>
+                <li><strong>Union:</strong> Replace any set of FDs \( \alpha \rightarrow \beta_1, \alpha \rightarrow
+                    \beta_2, \dots, \alpha \rightarrow \beta_k \) with \( \alpha \rightarrow \beta_1\beta_2\dots\beta_k
+                    \).</li>
+                <li><strong>Find extraneous attributes:</strong>
+                    <ul>
+                        <li>For each FD \( \alpha \rightarrow \beta \), for each attribute \( A \in \alpha \), test if
+                            \( A \) is extraneous on left: compute \( (\alpha - \{A\})^+ \) using the current set of
+                            FDs. If it contains \( \beta \), remove \( A \) from \( \alpha \).</li>
+                        <li>For each FD \( \alpha \rightarrow \beta \), for each attribute \( B \in \beta \), test if \(
+                            B \) is extraneous on right: compute \( \alpha^+ \) using the set where \( \alpha
+                            \rightarrow \beta \) is replaced by \( \alpha \rightarrow (\beta - \{B\}) \). If it contains
+                            \( B \), remove \( B \) from \( \beta \).</li>
+                    </ul>
+                </li>
+                <li><strong>Repeat</strong> until no changes.</li>
+            </ol>
+
+            <h3>Worked Example</h3>
+            <p>\( F = \{ A \rightarrow BC, AB \rightarrow C, A \rightarrow D, D \rightarrow C \} \).</p>
+            <ul>
+                <li>Union: already left sides unique? \( A \rightarrow BC \) and \( A \rightarrow D \) can be combined:
+                    \( A \rightarrow BCD \). So set becomes \( \{ A \rightarrow BCD, AB \rightarrow C, D \rightarrow C
+                    \} \).</li>
+                <li>Check \( AB \rightarrow C \): Is \( A \) extraneous? Compute \( B^+ \) using F: \( B^+ = \{B\} \)
+                    (no FD with left B). So not extraneous. Is \( B \) extraneous? Compute \( A^+ \) using F: \( A^+ =
+                    \{A,B,C,D\} \) (since \( A \rightarrow BCD \) and \( D \rightarrow C \)). Does it contain \( C \)?
+                    Yes. So \( B \) is extraneous. Remove B: becomes \( A \rightarrow C \). But \( A \rightarrow C \) is
+                    already implied by \( A \rightarrow BCD \). So \( AB \rightarrow C \) is redundant and can be
+                    removed entirely.</li>
+                <li>Now set = \( \{ A \rightarrow BCD, D \rightarrow C \} \).</li>
+                <li>Check \( A \rightarrow BCD \) for extraneous on right: Is \( C \) extraneous? Compute \( A^+ \)
+                    using \( A \rightarrow BD \) (if we remove C) and \( D \rightarrow C \)? Actually we need to test:
+                    with \( F' = \{ A \rightarrow BD, D \rightarrow C \} \), compute \( A^+ = \{A,B,D\} \) then using \(
+                    D \rightarrow C \), add C → \{A,B,C,D\}. So C is not extraneous because without \( A \rightarrow C
+                    \) directly, we still get C via D. But careful: The test for right extraneous: Remove C from RHS of
+                    \( A \rightarrow BCD \), get \( A \rightarrow BD \). Then compute \( A^+ \) using the new set (which
+                    includes \( A \rightarrow BD \) and \( D \rightarrow C \)). \( A^+ = \{A,B,D\} \) then using \( D
+                    \rightarrow C \) gives C, so \( A^+ \) contains C, meaning that \( A \rightarrow C \) is implied, so
+                    C is extraneous. Yes, we can remove C. So FD becomes \( A \rightarrow BD \).</li>
+                <li>Now set = \( \{ A \rightarrow BD, D \rightarrow C \} \).</li>
+                <li>Check \( A \rightarrow BD \): is D extraneous? Compute \( A^+ \) using \( A \rightarrow B \) only
+                    (remove D): \( A^+ = \{A,B\} \). Does not contain D. So not extraneous. is B extraneous? Compute \(
+                    A^+ \) using \( A \rightarrow D \): \( A^+ = \{A,D\} \) then \( D \rightarrow C \) gives C, but not
+                    B. So not extraneous. So canonical cover = \( \{ A \rightarrow BD, D \rightarrow C \} \).</li>
+            </ul>
+
+            <h3>Practice Hints</h3>
+            <p>Canonical cover is not unique; different elimination orders may give different but equivalent covers.
+                Always re‑apply union after each removal.</p>
+        </div>
+
+        <!-- Summary Table -->
+        <div class="concept-card">
+            <h2>Lecture Summary</h2>
+            <table border="1" cellpadding="8">
+                <tr>
+                    <th>Concept</th>
+                    <th>Key Condition / Algorithm</th>
+                </tr>
+                <tr>
+                    <td>Lossless join (binary)</em></td>
+                    <td>Intersection must be a superkey of at least one side</em></td>
+                </tr>
+                <tr>
+                    <td>Dependency preservation</em></td>
+                    <td>Each FD can be checked on decomposed relations; test via iterative closure</em></td>
+                </tr>
+                <tr>
+                    <td>Canonical cover</em></td>
+                    <td>Minimal, equivalent FD set; union + remove extraneous left/right</em></td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="concept-card">
+            <h2>Quick Revision Checklist</h2>
+            <ul>
+                <li>☐ State the sufficient condition for lossless join decomposition.</li>
+                <li>☐ Test if a given binary decomposition is lossless.</li>
+                <li>☐ Define dependency preservation.</li>
+                <li>☐ Apply the dependency preservation test algorithm to a decomposition.</li>
+                <li>☐ Compute canonical cover for a set of FDs.</li>
+                <li>☐ Explain trade‑offs: BCNF vs 3NF vs dependency preservation.</li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>

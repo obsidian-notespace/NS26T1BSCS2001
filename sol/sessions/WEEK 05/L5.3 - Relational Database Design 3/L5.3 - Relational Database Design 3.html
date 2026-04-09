@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>DBMS — Week 05 — L5.3: Relational Database Design/3 — Study Notes</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}]})">
+        </script>
+    <link rel="stylesheet" href="../../../../scr/ui/ui.css" />
+</head>
+
+<body>
+    <div class="assignment-container">
+        <div class="gcb-assessment-title">WEEK 05 — L5.3: Relational Database Design/3 — Study Notes</div>
+        <div class="assessment-top-info">
+            <strong>Week:</strong> 05 |
+            <strong>Lecture:</strong> L5.3 |
+            <strong>Topics:</strong> Derived Rules, Closure of Attributes, BCNF, 3NF<br />
+            <strong>Prerequisites:</strong> Functional dependencies, Armstrong’s axioms, candidate keys.<br />
+            <strong>Learning Outcomes:</strong> Derive union/decomposition rules, compute attribute closure, test for
+            superkey/candidate key, define BCNF and 3NF, understand their differences.
+        </div>
+
+        <!-- Concept 10: Derived Rules -->
+        <div class="concept-card">
+            <h2>10. Derived Rules from Armstrong’s Axioms</h2>
+            <h3>Definition</h3>
+            <p><strong>Derived rules</strong> are additional inference rules that follow from Armstrong’s three axioms.
+                They are not axioms themselves but theorems that simplify FD manipulation.</p>
+
+            <h3>Explanation</h3>
+            <p>The three most useful derived rules are:</p>
+            <ul>
+                <li><strong>Union (or Additivity):</strong> If \( \alpha \rightarrow \beta \) and \( \alpha \rightarrow
+                    \gamma \), then \( \alpha \rightarrow \beta\gamma \).<br />
+                    <em>Proof:</em> Augment \( \alpha \rightarrow \beta \) with \( \alpha \) to get \( \alpha\alpha
+                    \rightarrow \alpha\beta \) i.e., \( \alpha \rightarrow \alpha\beta \). Then augment \( \alpha
+                    \rightarrow \gamma \) with \( \beta \) to get \( \alpha\beta \rightarrow \beta\gamma \). By
+                    transitivity, \( \alpha \rightarrow \beta\gamma \).
+                </li>
+                <li><strong>Decomposition (or Projectivity):</strong> If \( \alpha \rightarrow \beta\gamma \), then \(
+                    \alpha \rightarrow \beta \) and \( \alpha \rightarrow \gamma \).<br />
+                    <em>Proof:</em> Since \( \beta \subseteq \beta\gamma \), reflexivity gives \( \beta\gamma
+                    \rightarrow \beta \). Transitivity with \( \alpha \rightarrow \beta\gamma \) gives \( \alpha
+                    \rightarrow \beta \). Similarly for \( \gamma \).
+                </li>
+                <li><strong>Pseudo‑transitivity:</strong> If \( \alpha \rightarrow \beta \) and \( \beta\gamma
+                    \rightarrow \delta \), then \( \alpha\gamma \rightarrow \delta \).<br />
+                    <em>Proof:</em> Augment \( \alpha \rightarrow \beta \) with \( \gamma \) to get \( \alpha\gamma
+                    \rightarrow \beta\gamma \). Then transitivity with \( \beta\gamma \rightarrow \delta \) gives \(
+                    \alpha\gamma \rightarrow \delta \).
+                </li>
+            </ul>
+            <p>These rules are used to simplify FD sets and to compute attribute closures efficiently.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>If you know that A determines B and A determines C, then obviously A determines both B and C together.
+                Conversely, if A determines B and C together, it certainly determines B alone. That’s the union and
+                decomposition rules.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Union rule</strong>: Combine right sides of FDs with same left side.</li>
+                <li><strong>Decomposition rule</strong>: Split right side into individual attributes.</li>
+                <li><strong>Pseudo‑transitivity</strong>: Allows “extra” attributes on the left of the second FD.</li>
+            </ul>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: “Union rule can be applied to any two FDs.”</strong> (Correction: The left
+                    sides must be identical.)</li>
+                <li><strong>Misconception: “Decomposition can split left side.”</strong> (Correction: Only the right
+                    side can be decomposed; left side splitting is not generally valid.)</li>
+            </ul>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • Union: combine same left side.<br />
+                • Decomposition: split right side.<br />
+                • Pseudo‑transitivity: chain with extra attributes.<br />
+                • These are shortcuts, not new axioms.
+            </p>
+        </div>
+
+        <!-- Concept 11: Closure of Attributes -->
+        <div class="concept-card">
+            <h2>11. Closure of a Set of Attributes (\( \alpha^+ \))</h2>
+            <h3>Definition</h3>
+            <p>Given a set of functional dependencies \( F \) and a set of attributes \( \alpha \), the <strong>closure
+                    of \( \alpha \)</strong> (denoted \( \alpha^+ \)) is the set of all attributes that are functionally
+                determined by \( \alpha \) under \( F \).</p>
+
+            <h3>Explanation</h3>
+            <p>The closure algorithm is fundamental:</p>
+            <ol>
+                <li>Start with \( result = \alpha \).</li>
+                <li>Repeatedly, for each FD \( \beta \rightarrow \gamma \) in \( F \), if \( \beta \subseteq result \),
+                    then add \( \gamma \) to \( result \).</li>
+                <li>Continue until no more changes.</li>
+            </ol>
+            <p>This algorithm runs in polynomial time and is extremely useful for:</p>
+            <ul>
+                <li>Testing if \( \alpha \) is a superkey: \( \alpha^+ = \text{all attributes of R} \).</li>
+                <li>Testing if an FD \( \alpha \rightarrow \beta \) holds: check if \( \beta \subseteq \alpha^+ \).</li>
+                <li>Finding candidate keys: start with single attributes, compute closure; if not superkey, add
+                    attributes until it becomes superkey, then minimize.</li>
+                <li>Computing the canonical cover.</li>
+            </ul>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Think of the closure algorithm as a “snowball” that starts with the given attributes and rolls through
+                the FDs, picking up all attributes that are forced to be determined.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Closure</strong>: \( \alpha^+ \) = set of all attributes determined by \( \alpha \).</li>
+                <li><strong>Superkey test</strong>: \( \alpha^+ = R \) (all attributes).</li>
+                <li><strong>Candidate key</strong>: minimal superkey.</li>
+            </ul>
+
+            <h3>Formulas / Example</h3>
+            <p>Given \( F = \{ A \rightarrow B, B \rightarrow C, BC \rightarrow D \} \), compute \( \{A\}^+ \).</p>
+            <ol>
+                <li>Start: result = {A}.</li>
+                <li>Use \( A \rightarrow B \): add B → {A, B}.</li>
+                <li>Use \( B \rightarrow C \): add C → {A, B, C}.</li>
+                <li>Use \( BC \rightarrow D \): BC ⊆ result, so add D → {A, B, C, D}.</li>
+                <li>No more FDs apply. Result = {A, B, C, D}.</li>
+            </ol>
+            <p>Thus \( A^+ = \{A,B,C,D\} \).</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: “The closure algorithm must consider FDs in a fixed order.”</strong>
+                    (Correction: Order doesn’t matter; you may need to iterate until no change.)</li>
+                <li><strong>Misconception: “If an FD’s left side is not exactly in result, you cannot use it.”</strong>
+                    (Correction: If a subset of the left side is in result, you cannot use it; the entire left side must
+                    be a subset of result.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li>If \( F \) is empty, \( \alpha^+ = \alpha \).</li>
+                <li>If \( \alpha \) already includes all attributes, closure stops immediately.</li>
+            </ul>
+
+            <h3>Real‑world Application</h3>
+            <p>Used in database design tools to automatically find all candidate keys of a relation from given FDs.</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • Closure algorithm: start with \( \alpha \), repeatedly add right sides of FDs whose left side is
+                already in result.<br />
+                • \( \alpha^+ = R \) ⇔ α is a superkey.<br />
+                • \( \beta \subseteq \alpha^+ \) ⇔ \( \alpha \rightarrow \beta \) holds.<br />
+                • Candidate keys are minimal superkeys.<br />
+                • The algorithm is polynomial and efficient.
+            </p>
+        </div>
+
+        <!-- Concept 12: Boyce-Codd Normal Form (BCNF) -->
+        <div class="concept-card">
+            <h2>12. Boyce‑Codd Normal Form (BCNF)</h2>
+            <h3>Definition</h3>
+            <p>A relation schema \( R \) is in <strong>Boyce‑Codd Normal Form (BCNF)</strong> with respect to a set of
+                FDs \( F \) if for every FD \( \alpha \rightarrow \beta \) in \( F^+ \) (the closure) that is
+                non‑trivial, \( \alpha \) is a superkey of \( R \).</p>
+
+            <h3>Explanation</h3>
+            <p>BCNF is a stricter normal form than 3NF. It eliminates all redundancy caused by non‑key FDs. In other
+                words, every non‑trivial FD must have a superkey on the left side.</p>
+            <p>For example, consider \( R(A,B,C) \) with \( A \rightarrow B \) and \( B \rightarrow C \), and candidate
+                key \( A \). The FD \( B \rightarrow C \) violates BCNF because \( B \) is not a superkey. To fix, we
+                decompose into \( R1(B,C) \) and \( R2(A,B) \).</p>
+            <p>BCNF decomposition is always lossless, but it may not preserve all functional dependencies. This is a
+                known trade‑off.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>BCNF says: every arrow in the FD diagram must start from a superkey. If there’s an arrow starting from a
+                non‑key, that’s a violation.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>BCNF</strong>: Every non‑trivial FD has a superkey left side.</li>
+                <li><strong>BCNF violation</strong>: A non‑trivial FD \( \alpha \rightarrow \beta \) where \( \alpha \)
+                    is not a superkey.</li>
+            </ul>
+
+            <h3>Decomposition for BCNF</h3>
+            <p>If \( \alpha \rightarrow \beta \) violates BCNF, decompose \( R \) into:
+                \[
+                R_1 = \alpha \cup \beta, \quad R_2 = R - (\beta - \alpha)
+                \]
+                Then recursively decompose each if needed.</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: “BCNF eliminates all redundancy.”</strong> (Correction: BCNF eliminates
+                    redundancy caused by FDs, but other types (e.g., multi‑valued dependencies) may still cause
+                    redundancy.)</li>
+                <li><strong>Misconception: “BCNF decomposition always preserves FDs.”</strong> (Correction: Not true;
+                    3NF is used when dependency preservation is required.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li>A relation with only one candidate key and all FDs having that key on left side is automatically in
+                    BCNF.</li>
+                <li>If there are multiple overlapping candidate keys, BCNF may be harder to achieve.</li>
+            </ul>
+
+            <h3>Real‑world Application</h3>
+            <p>Most OLTP (online transaction processing) systems aim for BCNF to avoid update anomalies, even if it
+                means some loss of dependency preservation.</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • BCNF requires every non‑trivial FD to have a superkey left side.<br />
+                • BCNF decomposition is lossless but may not preserve dependencies.<br />
+                • Violating FDs are decomposed using \( \alpha\beta \) and \( R - (\beta-\alpha) \).<br />
+                • BCNF is stronger than 3NF.
+            </p>
+        </div>
+
+        <!-- Concept 13: Third Normal Form (3NF) -->
+        <div class="concept-card">
+            <h2>13. Third Normal Form (3NF)</h2>
+            <h3>Definition</h3>
+            <p>A relation schema \( R \) is in <strong>Third Normal Form (3NF)</strong> if for every FD \( \alpha
+                \rightarrow \beta \) in \( F^+ \), at least one of the following holds:</p>
+            <ol>
+                <li>\( \alpha \rightarrow \beta \) is trivial, or</li>
+                <li>\( \alpha \) is a superkey of \( R \), or</li>
+                <li>Each attribute in \( \beta - \alpha \) is a <strong>prime attribute</strong> (i.e., part of some
+                    candidate key).</li>
+            </ol>
+
+            <h3>Explanation</h3>
+            <p>3NF relaxes BCNF slightly: it allows a non‑key FD if the right side consists entirely of prime attributes
+                (attributes that belong to some candidate key). This relaxation ensures that we can always achieve a
+                lossless and dependency‑preserving decomposition.</p>
+            <p>Example: \( R(A,B,C) \) with \( A \rightarrow B \) and \( B \rightarrow C \), candidate keys \( A \) and
+                \( B \). The FD \( B \rightarrow C \) is non‑trivial and \( B \) is a superkey? Actually, \( B \) is a
+                candidate key (since \( B \rightarrow C \) and \( A \rightarrow B \), so \( B \) determines all
+                attributes). Wait, need careful: If candidate keys are A and B, then B is a superkey, so it’s actually
+                in BCNF. A better example: \( R(A,B,C,D) \) with candidate keys \( AB \) and \( BC \). FD \( A
+                \rightarrow D \) violates BCNF because A is not a superkey. But if D is prime? No, D is not in any
+                candidate key. So not allowed in 3NF either. The classic 3NF‑but‑not‑BCNF example is with two
+                overlapping candidate keys, e.g., \( R(A,B,C) \) with \( AB \rightarrow C \) and \( C \rightarrow B \).
+                Candidate keys: \( AB \) and \( AC \). FD \( C \rightarrow B \) is non‑trivial, left side C is not a
+                superkey (C alone does not determine A), but right side B is prime (part of candidate key AB). So it
+                satisfies 3NF but not BCNF.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>3NF says: if a non‑superkey determines something, that something must be part of some key. This allows
+                some controlled redundancy but guarantees dependency preservation.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Prime attribute</strong>: An attribute that appears in at least one candidate key.</li>
+                <li><strong>Non‑prime attribute</strong>: Not in any candidate key.</li>
+            </ul>
+
+            <h3>Comparison with BCNF</h3>
+            <table border="1">
+                <tr>
+                    <th>Property</th>
+                    <th>BCNF</th>
+                    <th>3NF</th>
+                </tr>
+                <tr>
+                    <td>Lossless decomposition</em></td>
+                    <td>Always</td>
+                    <td>Always</td>
+                </tr>
+                <tr>
+                    <td>Dependency preservation</em></td>
+                    <td>Not always</td>
+                    <td>Always possible</td>
+                </tr>
+                <tr>
+                    <td>Redundancy elimination</em></td>
+                    <td>Maximum</td>
+                    <td>Less than BCNF</td>
+                </tr>
+            </table>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: “3NF is always enough for practical databases.”</strong> (Correction: BCNF is
+                    often preferred; 3NF is used when dependency preservation is critical.)</li>
+                <li><strong>Misconception: “Prime attributes cannot be determined by non‑keys.”</strong> (Correction:
+                    3NF allows that, BCNF does not.)</li>
+            </ul>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • 3NF allows a non‑key FD if the right side is prime.<br />
+                • Every BCNF relation is also in 3NF (but not vice versa).<br />
+                • 3NF decomposition can always be lossless and dependency‑preserving.<br />
+                • Use 3NF when you must preserve all FDs; use BCNF for maximum anomaly elimination.
+            </p>
+        </div>
+
+        <!-- Summary Table -->
+        <div class="concept-card">
+            <h2>Lecture Summary</h2>
+            <table border="1" cellpadding="8">
+                <tr>
+                    <th>Concept</th>
+                    <th>Key Condition</th>
+                    <th>Use</th>
+                </tr>
+                <tr>
+                    <td>Attribute Closure</em></td>
+                    <td>\( \alpha^+ \) computed iteratively</td>
+                    <td>Test superkey, candidate key, FD holding</td>
+                </tr>
+                <tr>
+                    <td>BCNF</em></td>
+                    <td>Every non‑trivial FD has superkey LHS</td>
+                    <td>Maximum redundancy removal, may lose FDs</td>
+                </tr>
+                <tr>
+                    <td>3NF</em></td>
+                    <td>Allow prime RHS for non‑superkey LHS</td>
+                    <td>Always dependency‑preserving</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="concept-card">
+            <h2>Quick Revision Checklist</h2>
+            <ul>
+                <li>☐ Derive union and decomposition rules from Armstrong’s axioms.</li>
+                <li>☐ Compute closure of a set of attributes given FDs.</li>
+                <li>☐ Determine if a set is a superkey/candidate key using closure.</li>
+                <li>☐ State BCNF definition and give an example of violation.</li>
+                <li>☐ State 3NF definition and differentiate from BCNF.</li>
+                <li>☐ Explain trade‑offs between BCNF and 3NF.</li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>

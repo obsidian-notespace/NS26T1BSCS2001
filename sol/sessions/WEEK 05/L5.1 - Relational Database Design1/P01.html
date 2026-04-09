@@ -1,0 +1,1519 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Database Management Systems -- Week 05 -- L5.1: Relational Database Design/1 -- Study Notes</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}]})">
+        </script>
+    <link rel="stylesheet" href="../../../../scr/ui/ui.css" />
+    <script src="../../../../scr/ui/ui.js"></script>
+</head>
+
+<body>
+    <div class="assignment-container">
+        <div class="gcb-assessment-title">WEEK 05 -- L5.1: Relational Database Design/1 -- Study Notes</div>
+        <div class="assessment-top-info">
+            <strong>Week:</strong> 05 |
+            <strong>Lecture:</strong> L5.1 |
+            <strong>Topics:</strong> Good Design Goals, Redundancy and Anomalies, Functional Dependencies,
+            Lossless/Lossy Decomposition, First Normal Form (1NF), Atomic Domains, Converting to 1NF<br />
+            <strong>Prerequisites:</strong> Basic understanding of relational model, keys (superkey, candidate key),
+            relational algebra (projection, natural join)<br />
+            <strong>Learning Outcomes:</strong>
+            <ul>
+                <li>Identify the characteristics of a well‑designed relational schema</li>
+                <li>Explain how redundancy leads to insertion, deletion and update anomalies</li>
+                <li>Define functional dependency and use it to capture real‑world constraints</li>
+                <li>Differentiate between lossless and lossy decomposition</li>
+                <li>Define atomic domains and first normal form (1NF)</li>
+                <li>Convert a non‑1NF relation into 1NF by decomposition</li>
+            </ul>
+        </div>
+
+        <!-- ========================= CONCEPT 1 ========================= -->
+        <div class="concept-card">
+            <h2>1. Goals of a Good Relational Database Design</h2>
+
+            <h3>Definition</h3>
+            <p>A good relational database design is one that accurately reflects the real‑world structure of the data,
+                avoids unnecessary duplication, ensures efficient access, preserves data integrity, and is easy to
+                understand and maintain over the lifetime of the database.</p>
+
+            <h3>Explanation</h3>
+            <p>Designing a relational database is not just about storing data; it is about creating a blueprint that
+                faithfully captures the semantics of the application domain. The following design goals, as emphasised
+                in the lecture, are the cornerstone of professional database development:</p>
+            <ul>
+                <li><strong>Real‑world fidelity:</strong> The schema must mirror the actual entities, attributes and
+                    relationships that exist in the problem domain. Any mismatch leads to incorrect query results and
+                    user confusion.</li>
+                <li><strong>Future‑proofness:</strong> A good design should be able to accommodate all data that will
+                    ever be stored, even if the exact values are not known at design time. The structure should not
+                    artificially prevent legal data from being inserted.</li>
+                <li><strong>Redundancy avoidance:</strong> Storing the same fact in multiple places wastes storage and,
+                    more importantly, introduces the risk of inconsistency. Redundancy is the enemy of integrity.</li>
+                <li><strong>Access efficiency:</strong> Queries must run in acceptable time. While normalisation reduces
+                    redundancy, sometimes a small amount of controlled redundancy is introduced for performance
+                    (denormalisation) – but that is a deliberate trade‑off, not a design goal per se.</li>
+                <li><strong>Integrity support:</strong> The schema should enable the enforcement of all business rules
+                    (e.g., via keys, foreign keys, check constraints). Functional dependencies are a way to express such
+                    rules formally.</li>
+                <li><strong>Clean, consistent and understandable:</strong> Other developers (and your future self) must
+                    be able to grasp the design quickly. A chaotic, over‑complicated schema leads to costly errors.</li>
+            </ul>
+            <p>The lecture stresses that some of these goals conflict. For example, eliminating redundancy often
+                requires splitting tables, which can slow down queries that need to re‑join them. The art of database
+                design is to find the right balance, typically guided by normalisation theory.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Think of a well‑designed database as a neatly organised filing cabinet. Each folder (table) holds only
+                one kind of document (entity). Documents never repeat the same information – if a piece of information
+                appears in two folders, updating it in one but forgetting the other creates chaos. A good design ensures
+                that every fact is stored exactly once, and every folder can be opened without needing to know about
+                other folders (insertion anomaly prevention).</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Redundancy:</strong> Duplication of the same data value across multiple tuples or multiple
+                    relations.</li>
+                <li><strong>Insertion anomaly:</strong> Inability to insert a tuple because required information is
+                    missing, even though the core entity is valid.</li>
+                <li><strong>Deletion anomaly:</strong> Unintended loss of information when deleting a tuple because
+                    unrelated facts are stored together.</li>
+                <li><strong>Update anomaly:</strong> Inconsistency caused by updating some but not all copies of a
+                    redundant data item.</li>
+                <li><strong>Functional dependency:</strong> A constraint that states that the value of one set of
+                    attributes uniquely determines the value of another set of attributes.</li>
+                <li><strong>Lossless join decomposition:</strong> A decomposition that allows the original relation to
+                    be reconstructed exactly by taking the natural join of the decomposed relations, without generating
+                    spurious tuples.</li>
+                <li><strong>Atomic domain:</strong> A domain whose elements are considered indivisible units; no
+                    structure is visible to the DBMS.</li>
+                <li><strong>First normal form (1NF):</strong> A relation in which the domain of every attribute is
+                    atomic and every attribute contains only a single value (no repeating groups).</li>
+            </ul>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: "Redundancy is harmless as long as storage is cheap."</strong><br />
+                    (Correction: The primary problem with redundancy is not storage cost but <strong>anomalies</strong>
+                    (insertion, deletion, update). Cheap storage does not fix inconsistent data.)</li>
+                <li><strong>Misconception: "A good design is always the one with the fewest tables."</strong><br />
+                    (Correction: Fewer tables often mean more redundancy. A properly normalised design usually has more
+                    tables, but each table represents a single concept, reducing anomalies.)</li>
+                <li><strong>Misconception: "Functional dependencies can be discovered by looking at the current
+                        data."</strong><br />
+                    (Correction: Functional dependencies are business rules that must hold for all possible instances,
+                    not just the current snapshot. Observing that two values are equal in the current data does not
+                    prove a dependency.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li><strong>Redundancy by design:</strong> In data warehousing, derived and aggregated data are
+                    intentionally stored redundantly to speed up analytical queries. This is a conscious trade‑off, not
+                    a design flaw.</li>
+                <li><strong>Lossy decomposition that produces more tuples:</strong> Some students think a lossy
+                    decomposition always produces fewer tuples. In reality, the natural join of a lossy decomposition
+                    may produce <strong>extra spurious tuples</strong> (more than the original), as shown in the
+                    supplier‑parts example.</li>
+            </ul>
+
+            <h3>Real-world Application</h3>
+            <p>Every commercial RDBMS (Oracle, MySQL, PostgreSQL, SQL Server) relies on normalisation theory. When a
+                developer creates a table with repeating groups (e.g., multiple phone numbers in one column), the
+                database does not enforce 1NF, but the application suffers from anomalies. Real‑world e‑commerce
+                platforms, banking systems, and ERP systems all undergo rigorous normalisation during design to maintain
+                data integrity.</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                * A good design avoids redundancy, supports integrity, and is easy to understand.<br />
+                * Redundancy leads to insertion, deletion and update anomalies – not just wasted space.<br />
+                * Functional dependencies capture business rules and are essential for normalisation.<br />
+                * Decompositions must be lossless‑join to preserve information; lossy decompositions create spurious
+                tuples.<br />
+                * First normal form (1NF) requires atomic domains and single‑valued attributes – the foundation for all
+                higher normal forms.
+            </p>
+        </div>
+
+        <!-- ========================= CONCEPT 2 ========================= -->
+        <div class="concept-card">
+            <h2>2. Redundancy and Anomalies</h2>
+
+            <h3>Definition</h3>
+            <p><strong>Redundancy</strong> occurs when the same piece of information is stored in multiple places within
+                a database. <strong>Anomalies</strong> are undesirable side‑effects (inconsistencies) that arise when
+                performing insert, delete or update operations on a relation that contains redundant data.</p>
+
+            <h3>Explanation</h3>
+            <p>The lecture uses the classic example of merging <code>instructor</code> and <code>department</code> into
+                a single table <code>instructor_with_dept</code>:</p>
+            <table border="1" cellpadding="6">
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Dept_name</th>
+                    <th>Salary</th>
+                    <th>Building</th>
+                    <th>Budget</th>
+                </tr>
+                <tr>
+                    <td>10101</td>
+                    <td>Einstein</td>
+                    <td>Physics</td>
+                    <td>95000</td>
+                    <td>Watson</td>
+                    <td>500000</td>
+                </tr>
+                <tr>
+                    <td>12121</td>
+                    <td>Gold</td>
+                    <td>Physics</td>
+                    <td>87000</td>
+                    <td>Watson</td>
+                    <td>500000</td>
+                </tr>
+            </table>
+            <p>Here <code>Building</code> and <code>Budget</code> depend only on <code>Dept_name</code>. Because two
+                instructors belong to the same department, those values are repeated – a classic redundancy.</p>
+            <p><strong>Insertion anomaly:</strong> Suppose we want to add a new department ‘Computer Science’ that has
+                no instructors yet. With the combined table, we cannot insert the department record because the primary
+                key <code>ID</code> would be missing. We are forced to add a dummy instructor, which is not allowed (or
+                creates meaningless data).</p>
+            <p><strong>Deletion anomaly:</strong> If we delete the last instructor of a department, we lose all
+                information about that department (its building and budget) even though the department still exists in
+                reality.</p>
+            <p><strong>Update anomaly:</strong> If the budget of the Physics department changes, we must update every
+                tuple that contains Physics. If we miss one, the database becomes inconsistent (different budget values
+                for the same department).</p>
+            <p>These anomalies are eliminated by decomposing the table into two separate relations:
+                <code>instructor(ID, name, dept_name, salary)</code> and
+                <code>department(dept_name, building, budget)</code>. Now each fact is stored exactly once.
+            </p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Imagine a spreadsheet where a department’s budget appears on every row for instructors of that
+                department. Updating the budget means finding every occurrence. If you miss one, two instructors from
+                the same department show different budgets – confusion. Splitting into two sheets (one for instructors,
+                one for departments) and linking them by department name makes updates single‑place and eliminates
+                repetition.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Insertion anomaly:</strong> A situation where a valid fact cannot be recorded because other
+                    required facts are not yet available.</li>
+                <li><strong>Deletion anomaly:</strong> Unintended loss of facts when deleting a tuple that also holds
+                    unrelated information.</li>
+                <li><strong>Update anomaly:</strong> Inconsistency that occurs when the same data is stored multiple
+                    times and not all copies are updated.</li>
+            </ul>
+
+            <h3>Formulas (if any)</h3>
+            <p>Not applicable, but the condition for redundancy can be expressed as: ∃ a functional dependency \(X
+                \rightarrow Y\) where \(X\) is not a superkey and the table contains multiple tuples with the same \(X\)
+                but different unrelated attributes.</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: "Only the largest tables suffer from anomalies."</strong><br />
+                    (Correction: Even small tables can have anomalies if they combine two independent entity types. The
+                    size is irrelevant; the presence of non‑key functional dependencies matters.)</li>
+                <li><strong>Misconception: "Anomalies can be fixed by adding triggers."</strong><br />
+                    (Correction: While triggers can enforce consistency, they do not remove the structural redundancy.
+                    Normalisation is the proper theoretical solution. Triggers are only a band‑aid.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li><strong>Snapshot tables:</strong> Historical or audit tables deliberately store redundant data to
+                    preserve past states. In such cases anomalies are not considered harmful because the goal is to
+                    freeze a point in time.</li>
+                <li><strong>Materialised views:</strong> They store redundant aggregated data but are refreshed
+                    automatically; anomalies are avoided by controlled refresh policies.</li>
+            </ul>
+
+            <h3>Real-world Application</h3>
+            <p>Every transactional system (e.g., online banking, flight booking) applies normalisation to prevent
+                anomalies. For instance, a flight reservation system stores passenger details separately from flight
+                schedules; otherwise changing a flight time would require updating every passenger’s record.</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                * Redundancy is not just about storage – it is the root cause of insertion, deletion and update
+                anomalies.<br />
+                * Combined tables that mix independent concepts are highly prone to anomalies.<br />
+                * Decomposing based on functional dependencies eliminates redundancy.<br />
+                * Always test a design by asking: “What happens when I insert/delete/update a single real‑world
+                fact?”<br />
+                * The anomalies are formally defined in the lecture and are standard exam topics.
+            </p>
+        </div>
+
+        <!-- ========================= CONCEPT 3 ========================= -->
+        <div class="concept-card">
+            <h2>3. Functional Dependencies – Formal Introduction</h2>
+
+            <h3>Definition</h3>
+            <p>A <strong>functional dependency (FD)</strong> is a constraint between two sets of attributes in a
+                relation. It is written as \(X \rightarrow Y\) (read “\(X\) functionally determines \(Y\)”) and means
+                that for any two tuples \(t_1\) and \(t_2\) in any legal instance of the relation, if \(t_1[X] =
+                t_2[X]\) then it must be that \(t_1[Y] = t_2[Y]\). In other words, the value of \(X\) uniquely
+                determines the value of \(Y\).</p>
+
+            <h3>Explanation</h3>
+            <p>Functional dependencies are the formal way to capture business rules. In the instructor‑department
+                example, the business rule “a department has a unique building and a unique budget” is expressed as:</p>
+            <p>\[ \text{dept\_name} \rightarrow \text{building, budget} \]</p>
+            <p>This FD holds because if two tuples have the same <code>dept_name</code>, they must agree on
+                <code>building</code> and <code>budget</code>. Conversely, the FD \(\text{ID} \rightarrow
+                \text{dept\_name}\) holds because an instructor belongs to exactly one department.
+            </p>
+            <p>FDs are a generalisation of the concept of key. A superkey \(K\) is a set of attributes that functionally
+                determines all attributes of the relation: \(K \rightarrow R\).</p>
+            <p>It is crucial to understand that FDs are <strong>semantic constraints</strong> derived from the
+                real‑world meaning of data, not from a particular instance. The lecture emphasises that you cannot infer
+                an FD just by looking at a few rows; you need domain knowledge.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Think of an FD as a mathematical function: \(X\) is the input, \(Y\) is the output. If you know the
+                input, you can compute the output uniquely. In a database, “input” means the value of attributes in
+                \(X\), and “output” means the value of attributes in \(Y\).</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Functional dependency (FD):</strong> \(X \rightarrow Y\) – each \(X\) value is associated
+                    with exactly one \(Y\) value.</li>
+                <li><strong>Trivial FD:</strong> An FD where the right‑hand side is a subset of the left‑hand side
+                    (e.g., \(AB \rightarrow A\)). Always true by definition.</li>
+                <li><strong>Non‑trivial FD:</strong> An FD where the right‑hand side is not a subset of the left‑hand
+                    side.</li>
+                <li><strong>Closure of a set of FDs (F⁺):</strong> The set of all FDs that can be derived from the given
+                    set using Armstrong’s axioms.</li>
+                <li><strong>Attribute closure (\(X^+\)):</strong> The set of all attributes that are functionally
+                    determined by \(X\) under a given set of FDs.</li>
+            </ul>
+
+            <h3>Formulas (if any)</h3>
+            <p>\[ \text{For any instance } r \text{ of } R,\ \forall t_1,t_2 \in r,\ (t_1[X] = t_2[X]) \Rightarrow
+                (t_1[Y] = t_2[Y]) \]</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: "If the current data shows unique values in Y for each X, then \(X
+                        \rightarrow Y\) holds."</strong><br />
+                    (Correction: The current instance might accidentally satisfy the FD, but the FD must hold for
+                    <em>all</em> possible future instances. Therefore you cannot “discover” FDs solely from data; you
+                    need the business rules.)
+                </li>
+                <li><strong>Misconception: "\(X \rightarrow Y\) implies \(Y \rightarrow X\)."</strong><br />
+                    (Correction: Functional dependencies are not symmetric. \(X \rightarrow Y\) says nothing about
+                    whether \(Y\) determines \(X\).)</li>
+                <li><strong>Misconception: "All FDs are trivial."</strong><br />
+                    (Correction: Only FDs where RHS ⊆ LHS are trivial. Most real‑world constraints are non‑trivial.)
+                </li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li><strong>Empty left‑hand side:</strong> \(\emptyset \rightarrow Y\) means that all tuples must have
+                    the same value for \(Y\) (i.e., \(Y\) is constant across the relation).</li>
+                <li><strong>FDs with composite left‑hand side:</strong> \(AB \rightarrow C\) means the combination of
+                    \(A\) and \(B\) determines \(C\). Even if \(A\) alone does not determine \(C\), the combination
+                    might.</li>
+            </ul>
+
+            <h3>Real-world Application</h3>
+            <p>FDs are used in database design tools (e.g., Oracle Designer, ERwin) to automatically normalise schemas.
+                They also form the basis for query optimisation: if the system knows that \(A \rightarrow B\), it can
+                avoid duplicate checks.</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                * An FD \(X \rightarrow Y\) states that \(X\) uniquely determines \(Y\).<br />
+                * FDs are semantic constraints, not statistical observations.<br />
+                * Every superkey corresponds to an FD \(K \rightarrow R\).<br />
+                * FDs are the foundation for normalisation – they tell us when to decompose.
+            </p>
+        </div>
+
+        <!-- ========================= CONCEPT 4 ========================= -->
+        <div class="concept-card">
+            <h2>4. Decomposition – Lossless vs Lossy Join</h2>
+
+            <h3>Definition</h3>
+            <p><strong>Decomposition</strong> is the process of replacing a relation \(R\) with a set of relations
+                \(\{R_1, R_2, \dots, R_n\}\) such that each \(R_i\) is a subset of the attributes of \(R\) (a
+                projection) and every attribute of \(R\) appears in at least one \(R_i\). The decomposition is
+                <strong>lossless‑join</strong> if, for every legal instance \(r\) of \(R\), the natural join of the
+                projections of \(r\) onto the \(R_i\) yields exactly \(r\) (no spurious tuples).
+            </p>
+
+            <h3>Explanation</h3>
+            <p>The lecture contrasts two decompositions of the <code>instructor_with_dept</code> table:</p>
+            <ul>
+                <li><strong>Good (lossless) decomposition:</strong> \(\{ \text{instructor(ID, name, dept\_name,
+                    salary)}, \text{department(dept\_name, building, budget)} \}\). The natural join on
+                    <code>dept_name</code> reconstructs the original table exactly because <code>dept_name</code> is a
+                    key in the department relation.
+                </li>
+                <li><strong>Bad (lossy) decomposition:</strong> e.g., decomposing into \(\text{emp1(ID, name)}\) and
+                    \(\text{emp2(name, salary)}\) – if two employees share the same name, the join produces spurious
+                    combinations.</li>
+            </ul>
+            <p>A sufficient condition for a binary decomposition \(R_1, R_2\) to be lossless is:</p>
+            <p>\[ R_1 \cap R_2 \rightarrow R_1 \quad \text{or} \quad R_1 \cap R_2 \rightarrow R_2 \]</p>
+            <p>That is, the common attributes must form a superkey for at least one of the decomposed relations.</p>
+            <p>The lecture gives the supplier‑parts example where decomposing on <code>quantity</code> (not a key) leads
+                to a lossy join (extra tuples appear).</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Think of a puzzle: you cut a picture into two pieces. If the cut follows a natural boundary (like a
+                river), you can glue them back without distortion. If you cut randomly, you might create extra pieces
+                that do not fit. The lossless condition ensures the cut follows a “key” boundary so that the pieces fit
+                uniquely.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Lossless‑join decomposition:</strong> A decomposition that allows exact reconstruction via
+                    natural join.</li>
+                <li><strong>Lossy decomposition:</strong> A decomposition that either loses information or creates
+                    spurious tuples upon join.</li>
+                <li><strong>Spurious tuples:</strong> Tuples that appear in the join but were not present in the
+                    original relation.</li>
+            </ul>
+
+            <h3>Formulas (if any)</h3>
+            <p>For binary decomposition \(R_1\) and \(R_2\) of \(R\):</p>
+            <p>\[ \text{Decomposition is lossless} \iff (R_1 \cap R_2) \rightarrow R_1 \ \text{or}\ (R_1 \cap R_2)
+                \rightarrow R_2 \]</p>
+            <p>Equivalently, \( (R_1 \cap R_2) \) is a superkey in either \(R_1\) or \(R_2\).</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: "Any decomposition that does not lose attributes is lossless."</strong><br />
+                    (Correction: Attribute preservation is necessary but not sufficient. The join must not create extra
+                    rows.)</li>
+                <li><strong>Misconception: "Lossless decomposition always produces fewer tuples."</strong><br />
+                    (Correction: Lossless decomposition produces exactly the original tuples after join. Lossy
+                    decomposition often produces more tuples.)</li>
+                <li><strong>Misconception: "If the intersection is empty, the decomposition is lossless."</strong><br />
+                    (Correction: If the intersection is empty, the join becomes a Cartesian product, which almost always
+                    produces spurious tuples – it is lossy unless one of the relations is empty.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li>If the original relation contains no tuples (empty instance), any decomposition is technically
+                    lossless, but the definition requires it to hold for all instances, so the condition must be
+                    satisfied for non‑empty cases as well.</li>
+                <li>When the intersection is a candidate key in both relations, the decomposition is still lossless (the
+                    condition is satisfied twice).</li>
+            </ul>
+
+            <h3>Real-world Application</h3>
+            <p>When a DBA splits a large table into two for performance reasons (vertical partitioning), they must
+                ensure the split is lossless, typically by keeping the primary key in both partitions. This is common in
+                column‑oriented databases.</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                * Lossless join is mandatory for any decomposition – otherwise information is lost.<br />
+                * The condition for binary lossless decomposition is that the common attributes form a superkey in at
+                least one of the resulting relations.<br />
+                * Always test decomposition by constructing natural joins on sample data (including edge cases).<br />
+                * Lossless decomposition is necessary but not sufficient for a good design; dependency preservation is
+                also required.
+            </p>
+        </div>
+
+        <!-- ========================= CONCEPT 5 ========================= -->
+        <div class="concept-card">
+            <h2>5. Atomic Domains and First Normal Form (1NF)</h2>
+
+            <h3>Definition</h3>
+            <p>A domain is <strong>atomic</strong> if elements of the domain are considered indivisible units. A
+                relation schema \(R\) is in <strong>First Normal Form (1NF)</strong> if the domains of all its
+                attributes are atomic and every attribute contains only a single value (no repeating groups or
+                multi‑valued attributes).</p>
+
+            <h3>Explanation</h3>
+            <p>In the relational model, every attribute value must be a single, indivisible value. Composite attributes
+                (e.g., <code>Name</code> composed of <code>FirstName</code> and <code>LastName</code>) violate
+                atomicity. Multi‑valued attributes (e.g., a set of phone numbers) also violate 1NF because a single
+                tuple would contain multiple values.</p>
+            <p>The lecture gives the example of a <code>Customer</code> relation:</p>
+            <pre>Customer( custID, name, phone_numbers )</pre>
+            <p>If a customer has two phone numbers, the naive representation either stores both numbers in one attribute
+                (comma‑separated string, not atomic) or creates two columns <code>phone1</code>, <code>phone2</code>
+                (still violates 1NF because the number of columns is fixed while the number of phones can vary).</p>
+            <p>The correct way to achieve 1NF is to <strong>decompose</strong> into two relations:</p>
+            <p>\[ \text{Customer(custID, name)} \]</p>
+            <p>\[ \text{CustomerPhone(custID, phone)} \]</p>
+            <p>Now each phone number is stored in a separate tuple, and every attribute is atomic.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>1NF is like a spreadsheet where every cell contains a single number or a simple text, not a list. If you
+                ever feel tempted to put a comma‑separated list inside a cell, you are violating 1NF.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Atomic domain:</strong> A domain where the DBMS cannot see any internal structure; the value
+                    is treated as a whole.</li>
+                <li><strong>Repeating group:</strong> A set of values that can appear multiple times for a single tuple,
+                    e.g., multiple phone numbers.</li>
+                <li><strong>First normal form (1NF):</strong> A relation that contains no repeating groups and all
+                    attributes are atomic.</li>
+            </ul>
+
+            <h3>Formulas (if any)</h3>
+            <p>Not applicable, but note that 1NF is the starting point for all higher normal forms (2NF, 3NF, BCNF,
+                etc.).</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: "1NF prohibits composite attributes completely."</strong><br />
+                    (Correction: The requirement is that the DBMS should treat the attribute as atomic. If you split
+                    <code>Name</code> into <code>FirstName</code> and <code>LastName</code> as separate attributes, that
+                    is fine – each is atomic.)
+                </li>
+                <li><strong>Misconception: "Using a fixed number of columns (phone1, phone2, phone3) is
+                        1NF."</strong><br />
+                    (Correction: While each column contains a single value, the design is not 1NF because the column set
+                    is repeating. The correct solution is a separate table.)</li>
+                <li><strong>Misconception: "1NF is always desirable."</strong><br />
+                    (Correction: 1NF is mandatory in the classical relational model. However, modern NoSQL databases
+                    intentionally relax 1NF for flexibility.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li><strong>Codes with embedded meaning:</strong> e.g., <code>CourseID = "CS101"</code> where "CS" means
+                    department. The domain is still atomic if the DBMS does not interpret substrings; decomposition is a
+                    design choice, not a 1NF violation.</li>
+                <li><strong>JSON/XML data types:</strong> Some DBMSs provide native JSON types; storing a JSON array in
+                    a column violates 1NF from the relational perspective, but the system may treat it as an atomic
+                    document. This is an exception in modern hybrid systems.</li>
+            </ul>
+
+            <h3>Real-world Application</h3>
+            <p>Every SQL database that claims to be relational (MySQL, PostgreSQL, Oracle, SQL Server) enforces 1NF at
+                the schema level – you cannot have a column that contains multiple values unless you use a complex data
+                type (which is often discouraged).</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                * 1NF requires atomic domains and single‑valued attributes.<br />
+                * Repeating groups (multiple phone numbers) must be moved to a separate table.<br />
+                * Violations of 1NF lead to redundancy and anomalies.<br />
+                * The standard approach to bring a relation to 1NF is decomposition.<br />
+                * All subsequent normalisation (2NF, 3NF, BCNF) assume 1NF as a starting point.
+            </p>
+        </div>
+
+        <!-- ========================= CONCEPT 6 ========================= -->
+        <div class="concept-card">
+            <h2>6. Converting Non‑1NF Relations to 1NF</h2>
+
+            <h3>Definition</h3>
+            <p>Converting a non‑1NF relation to 1NF involves eliminating repeating groups and making every attribute
+                atomic. The standard method is to create a separate relation for the multi‑valued attribute, with the
+                original key (or a foreign key) as part of the new relation’s key.</p>
+
+            <h3>Explanation</h3>
+            <p>Consider the <code>Customer</code> relation with a multi‑valued attribute <code>phones</code>:</p>
+            <pre>Customer( custID, name, phones )</pre>
+            <p>Step‑by‑step conversion:</p>
+            <ol>
+                <li>Create a new relation <code>CustomerPhone</code> that contains the primary key of
+                    <code>Customer</code> (as a foreign key) plus the attribute that was multi‑valued.
+                </li>
+                <li>For each phone number of a customer, insert one tuple into <code>CustomerPhone</code>.</li>
+                <li>Remove the <code>phones</code> attribute from <code>Customer</code>.</li>
+            </ol>
+            <p>Result:</p>
+            <pre>Customer( custID, name )</pre>
+            <pre>CustomerPhone( custID, phone )</pre>
+            <p>Both relations are in 1NF. The key of <code>CustomerPhone</code> is <code>(custID, phone)</code>.</p>
+            <p>The lecture also shows the alternative of using multiple columns (<code>phone1</code>,
+                <code>phone2</code>) and explains why that is unacceptable because the number of phones is not fixed and
+                queries become awkward.
+            </p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Imagine a library card where each member can have multiple phone numbers. Instead of writing all numbers
+                on one line (separated by commas), you give each member a separate sheet of paper that lists one number
+                per line. The member’s ID connects the two sheets.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Repeating group:</strong> A set of values that can appear zero or more times for a single
+                    tuple.</li>
+                <li><strong>Flattening:</strong> The process of converting a multi‑valued attribute into a separate
+                    table.</li>
+            </ul>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: "Using a string with delimiters (e.g., '555-1234,555-5678') is acceptable
+                        because it's a single value."</strong><br />
+                    (Correction: Although it is a single string, the domain is not atomic because queries that need to
+                    extract individual numbers become difficult and inefficient. This violates the spirit of 1NF.)</li>
+                <li><strong>Misconception: "Creating a separate table for phone numbers is
+                        over‑normalisation."</strong><br />
+                    (Correction: It is the standard relational solution. Without it, updating a phone number would
+                    require parsing a string, leading to anomalies.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li><strong>Multiple multi‑valued attributes:</strong> Each multi‑valued attribute gets its own separate
+                    table.</li>
+                <li><strong>Nested repeating groups:</strong> A relation that has a repeating group within a repeating
+                    group – handled by repeated decomposition.</li>
+            </ul>
+
+            <h3>Real-world Application</h3>
+            <p>Every time you design a database for a customer relationship management (CRM) system, you create separate
+                tables for addresses, phone numbers, email addresses – all to keep the customer table in 1NF.</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                * Non‑1NF relations are normalised by decomposing the multi‑valued part into a separate table.<br />
+                * The key of the new table includes the original key plus the multi‑valued attribute.<br />
+                * Using multiple columns (phone1, phone2) is not a valid 1NF solution.<br />
+                * 1NF conversion is the first step before applying higher normal forms.<br />
+                * Always ensure every column contains atomic, single values.
+            </p>
+        </div>
+
+        <!-- SUMMARY TABLE -->
+        <div class="concept-card">
+            <h2>Lecture Summary</h2>
+            <table border="1" cellpadding="8" style="border-collapse: collapse; width: 100%;">
+                <tr>
+                    <th>Concept</th>
+                    <th>Key Definition</th>
+                    <th>Formula / Condition</th>
+                    <th>Common Mistake</th>
+                </tr>
+                <tr>
+                    <td>Good Design Goals</td>
+                    <td>Real‑world fidelity, no redundancy, efficient, integrity, understandable</td>
+                    <td>–</td>
+                    <td>Confusing redundancy with performance tuning</td>
+                </tr>
+                <tr>
+                    <td>Redundancy & Anomalies</td>
+                    <td>Same data stored multiple times → insertion/deletion/update anomalies</td>
+                    <td>–</td>
+                    <td>Believing only storage cost matters</td>
+                </tr>
+                <tr>
+                    <td>Functional Dependency</td>
+                    <td>\(X \rightarrow Y\): \(X\) uniquely determines \(Y\)</td>
+                    <td>\(\forall t_1,t_2, t_1[X]=t_2[X] \Rightarrow t_1[Y]=t_2[Y]\)</td>
+                    <td>Inferring FDs from data instances</td>
+                </tr>
+                <tr>
+                    <td>Lossless Join Decomposition</td>
+                    <td>Join of projections equals original relation</td>
+                    <td>\((R_1 \cap R_2) \rightarrow R_1\) or \(\rightarrow R_2\)</td>
+                    <td>Assuming any decomposition that preserves attributes is lossless</td>
+                </tr>
+                <tr>
+                    <td>First Normal Form (1NF)</td>
+                    <td>Atomic domains, no repeating groups</td>
+                    <td>–</td>
+                    <td>Using fixed columns for repeating groups</td>
+                </tr>
+                <tr>
+                    <td>Converting to 1NF</td>
+                    <td>Separate table for multi‑valued attribute</td>
+                    <td>–</td>
+                    <td>Storing delimited strings</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- QUICK REVISION CHECKLIST -->
+        <div class="concept-card">
+            <h2>Quick Revision Checklist</h2>
+            <ul>
+                <li>Can you list the five main goals of good relational design?</li>
+                <li>Can you explain insertion, deletion and update anomalies with examples?</li>
+                <li>Can you write the formal definition of a functional dependency?</li>
+                <li>Can you determine whether a given binary decomposition is lossless using the intersection‑key
+                    condition?</li>
+                <li>Can you define atomic domain and first normal form?</li>
+                <li>Can you convert a relation with a multi‑valued attribute into 1NF?</li>
+                <li>Can you differentiate between lossless and lossy decomposition?</li>
+                <li>Can you explain why redundancy is harmful beyond storage cost?</li>
+                <li>Can you give real‑world examples of insertion/deletion/update anomalies?</li>
+                <li>Can you explain why “phone1, phone2” columns do not satisfy 1NF?</li>
+            </ul>
+        </div>
+        <div id="questions-container"></div>
+    </div>
+    <script>
+        window.questionsData = [
+            {
+                "id": 1,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following is NOT a goal of a good relational database design as discussed in the lecture?",
+                "options": [
+                    "The design should provide efficient access to data.",
+                    "The design must promote redundant storage of data items.",
+                    "The design must be clean, consistent, and easy to understand.",
+                    "The design must consider all expected data over time."
+                ],
+                "correct": 1,
+                "explanation": "Redundant storage leads to anomalies (insertion, deletion, update) and wastes space; it is harmful, not a goal.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Recall the lecture's list of good design goals: real‑world fidelity, future‑proofness, avoidance of redundancy, efficient access, integrity support, clarity.<br>2. Option A (efficient access) – explicitly stated as a goal.<br>3. Option B (promote redundant storage) – directly contradicts the goal of avoiding redundancy. Redundancy causes anomalies.<br>4. Option C (clean & consistent) – a primary goal.<br>5. Option D (consider all expected data) – ensures longevity of design.<br><br><strong>Why the correct answer is correct:</strong><br>Redundancy is detrimental; good design aims to minimise it, not promote it.<br><br><strong>Why other options are incorrect:</strong><br>Options A, C, and D are all listed as desirable features in the lecture.<br><br><strong>How to approach this type of problem:</strong><br>Memorise the list of good design goals. Look for the option that contradicts those goals.<br><br><strong>Concept used:</strong> Goals of relational database design.<br><strong>Points to remember:</strong><br>* Redundancy is harmful, not helpful.<br>* Efficiency, clarity, and completeness are essential.<br><strong>Key takeaway:</strong> A good design never intentionally introduces redundant data."
+            },
+            {
+                "id": 2,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider a relation that stores both instructor details and department details together. If we delete the last instructor of a department, we lose all information about that department. This situation is an example of which anomaly?",
+                "options": [
+                    "Insertion anomaly",
+                    "Deletion anomaly",
+                    "Update anomaly",
+                    "Redundancy anomaly"
+                ],
+                "correct": 1,
+                "explanation": "Deletion anomaly occurs when deleting a tuple causes unintended loss of unrelated information (here, department details).",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Identify the scenario: deleting the last instructor of a department also removes department building and budget.<br>2. Insertion anomaly – inability to add a new department without an instructor → not applicable here.<br>3. Deletion anomaly – unintended loss of information when deleting a tuple → matches the scenario.<br>4. Update anomaly – inconsistency due to redundant data being partially updated → not the case.<br>5. “Redundancy anomaly” is not a standard term.<br><br><strong>Why the correct answer is correct:</strong><br>The scenario exactly matches the definition of deletion anomaly: losing unrelated information because it was stored together with the deleted tuple.<br><br><strong>Why other options are incorrect:</strong><br>* Insertion anomaly: would involve inability to insert a valid tuple.<br>* Update anomaly: would involve partial updates causing inconsistency.<br>* Redundancy anomaly: not a defined anomaly type.<br><br><strong>How to approach this type of problem:</strong><br>Recall the three anomalies: insertion (can’t add), deletion (lose extra info), update (inconsistent changes).<br><br><strong>Concept used:</strong> Anomalies in database design.<br><strong>Points to remember:</strong><br>* Deletion anomaly: losing data you didn't intend to delete.<br>* Always check if the deleted tuple carried extra information.<br><strong>Key takeaway:</strong> Combining independent entity types into one table causes deletion anomalies."
+            },
+            {
+                "id": 3,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following correctly describes a functional dependency?",
+                "options": [
+                    "A constraint that the values of one set of attributes must be unique.",
+                    "A constraint that if two tuples agree on a set of attributes, they must agree on another set of attributes.",
+                    "A constraint that every attribute must be functionally dependent on the primary key.",
+                    "A constraint that ensures foreign key references are valid."
+                ],
+                "correct": 1,
+                "explanation": "Functional dependency \(X \\rightarrow Y\) means: for any two tuples, if they agree on X, they must agree on Y.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Recall the formal definition: FD \(X \\rightarrow Y\) holds iff for all tuples \(t_1, t_2\), \(t_1[X] = t_2[X] \\Rightarrow t_1[Y] = t_2[Y]\).<br>2. Option A describes uniqueness (superkey property), not functional dependency in general.<br>3. Option B exactly matches the definition.<br>4. Option C is too restrictive – FDs can involve non‑key attributes.<br>5. Option D describes referential integrity, not FD.<br><br><strong>Why the correct answer is correct:</strong><br>The definition of FD is precisely that agreement on the left‑hand side forces agreement on the right‑hand side.<br><br><strong>Why other options are incorrect:</strong><br>* Option A: uniqueness is a special case when the right‑hand side is the entire relation, but FD is more general.<br>* Option C: not all FDs involve the primary key; many involve non‑key attributes.<br>* Option D: referential integrity is a different constraint.<br><br><strong>How to approach this type of problem:</strong><br>Memorise the exact wording of the FD definition. Look for “if … agree on … then … agree on …”.<br><br><strong>Concept used:</strong> Functional dependency definition.<br><strong>Points to remember:</strong><br>* FD is about equality of tuples, not about uniqueness.<br>* The definition uses universal quantifiers over all possible instances.<br><strong>Key takeaway:</strong> \(X \\rightarrow Y\) means \(X\) uniquely determines \(Y\) in the functional sense."
+            },
+            {
+                "id": 4,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following functional dependencies is trivial?",
+                "options": [
+                    "\(A \\rightarrow B\)",
+                    "\(AB \\rightarrow C\)",
+                    "\(AB \\rightarrow A\)",
+                    "\(A \\rightarrow BC\)"
+                ],
+                "correct": 2,
+                "explanation": "A trivial FD has the right‑hand side as a subset of the left‑hand side. Here \(AB \\rightarrow A\) satisfies that.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Definition: trivial FD if \(\\text{RHS} \\subseteq \\text{LHS}\).<br>2. Option A: \(A \\rightarrow B\) – B is not subset of {A} → non‑trivial.<br>3. Option B: \(AB \\rightarrow C\) – C is not in {A,B} → non‑trivial.<br>4. Option C: \(AB \\rightarrow A\) – {A} ⊆ {A,B} → trivial.<br>5. Option D: \(A \\rightarrow BC\) – BC not subset of {A} → non‑trivial.<br><br><strong>Why the correct answer is correct:</strong><br>Because RHS = {A} is a subset of LHS = {A,B}, the FD holds automatically for any instance.<br><br><strong>Why other options are incorrect:</strong><br>Options A, B, D have RHS attributes not completely contained in the LHS; they are non‑trivial.<br><br><strong>How to approach this type of problem:</strong><br>Check if every attribute on the right appears on the left. If yes, trivial; otherwise non‑trivial.<br><br><strong>Concept used:</strong> Trivial functional dependency.<br><strong>Points to remember:</strong><br>* Trivial FDs are always true.<br>* They do not provide any useful constraint.<br><strong>Key takeaway:</strong> An FD is trivial iff RHS ⊆ LHS."
+            },
+            {
+                "id": 5,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "What is the primary problem caused by data redundancy in a relational database?",
+                "options": [
+                    "Increased storage cost",
+                    "Slower query performance",
+                    "Data anomalies (insertion, deletion, update)",
+                    "Difficulty in adding new attributes"
+                ],
+                "correct": 2,
+                "explanation": "While storage cost is a factor, the most serious problem is anomalies that lead to data inconsistency.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Redundancy means same data stored multiple times.<br>2. Storage cost increase is a minor issue compared to integrity problems.<br>3. Slower query performance may or may not occur (sometimes redundancy helps performance).<br>4. The lecture emphasises that redundancy leads to insertion, deletion and update anomalies, which corrupt data integrity.<br>5. Difficulty in adding new attributes is unrelated to redundancy.<br><br><strong>Why the correct answer is correct:</strong><br>Anomalies directly compromise the correctness of the database, which is far more critical than storage or speed.<br><br><strong>Why other options are incorrect:</strong><br>* Storage cost: although real, it is not the primary problem; modern storage is cheap.<br>* Slower queries: redundant data might even speed up reads (denormalisation).<br>* Adding attributes: not directly caused by redundancy.<br><br><strong>How to approach this type of problem:</strong><br>Focus on the lecture’s emphasis: redundancy → anomalies → inconsistency.<br><br><strong>Concept used:</strong> Consequences of redundancy.<br><strong>Points to remember:</strong><br>* The main harm of redundancy is loss of integrity, not just space.<br>* Exam questions often test the “most serious” problem.<br><strong>Key takeaway:</strong> Anomalies are the primary danger of redundant storage."
+            },
+            {
+                "id": 6,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "A relation is in First Normal Form (1NF) if:",
+                "options": [
+                    "All attributes are atomic and there are no repeating groups.",
+                    "Every non‑key attribute is fully functionally dependent on the primary key.",
+                    "There are no transitive dependencies.",
+                    "All functional dependencies have a superkey on the left‑hand side."
+                ],
+                "correct": 0,
+                "explanation": "1NF only requires atomic domains and no repeating groups; higher normal forms address other dependencies.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Definition of 1NF: domains of all attributes are atomic, and no attribute contains multiple values (no repeating groups).<br>2. Option A matches this definition.<br>3. Option B describes 2NF (full functional dependency).<br>4. Option C describes 3NF (no transitive dependencies).<br>5. Option D describes BCNF (every determinant is a superkey).<br><br><strong>Why the correct answer is correct:</strong><br>1NF is the most basic normal form, only concerned with atomicity and single values.<br><br><strong>Why other options are incorrect:</strong><br>Options B, C, D are conditions for higher normal forms, not for 1NF.<br><br><strong>How to approach this type of problem:</strong><br>Remember the hierarchy: 1NF → 2NF → 3NF → BCNF. 1NF is only about atomicity.<br><br><strong>Concept used:</strong> First Normal Form.<br><strong>Points to remember:</strong><br>* 1NF does not involve functional dependencies explicitly.<br>* All relations in the classical relational model are assumed to be in 1NF.<br><strong>Key takeaway:</strong> 1NF = atomic + single‑valued attributes."
+            },
+            {
+                "id": 7,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Suppose we decompose a relation \(R\) into \(R_1\) and \(R_2\). The decomposition is lossless if:",
+                "options": [
+                    "The union of attributes of \(R_1\) and \(R_2\) equals all attributes of \(R\).",
+                    "The natural join of \(R_1\) and \(R_2\) produces a superset of the original tuples.",
+                    "The intersection of \(R_1\) and \(R_2\) is a superkey for at least one of \(R_1\) or \(R_2\).",
+                    "Both \(R_1\) and \(R_2\) are in BCNF."
+                ],
+                "correct": 2,
+                "explanation": "Lossless join condition: \(R_1 \\cap R_2 \\rightarrow R_1\) or \(R_1 \\cap R_2 \\rightarrow R_2\).",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Lossless decomposition means natural join of projections yields exactly the original relation.<br>2. Option A (union covering all attributes) is necessary but not sufficient.<br>3. Option B (producing a superset) describes a lossy decomposition (spurious tuples).<br>4. Option C matches the sufficient condition: the common attributes must form a superkey in at least one of the decomposed relations.<br>5. Option D (both in BCNF) is neither necessary nor sufficient for losslessness.<br><br><strong>Why the correct answer is correct:</strong><br>The lecture gives the condition: \((R_1 \\cap R_2) \\rightarrow R_1\) or \((R_1 \\cap R_2) \\rightarrow R_2\). This is exactly that the intersection is a superkey in one of them.<br><br><strong>Why other options are incorrect:</strong><br>* Option A is necessary but not sufficient (e.g., supplier‑parts example had union coverage but was lossy).<br>* Option B describes lossy decomposition.<br>* Option D: BCNF does not guarantee losslessness; a BCNF decomposition can be lossy if not done properly.<br><br><strong>How to approach this type of problem:</strong><br>Memorise the binary lossless join condition. For more than two relations, the condition must hold pairwise in some order.<br><br><strong>Concept used:</strong> Lossless join decomposition.<br><strong>Points to remember:</strong><br>* The common attributes must be a key in at least one of the two relations.<br>* Attribute coverage alone is insufficient.<br><strong>Key takeaway:</strong> Intersection → superkey ensures losslessness."
+            },
+            {
+                "id": 8,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following is an example of a non‑atomic domain?",
+                "options": [
+                    "EmployeeID of type integer",
+                    "Salary of type decimal",
+                    "Name stored as a single string",
+                    "Phone numbers stored as a set (e.g., {555-1234, 555-5678})"
+                ],
+                "correct": 3,
+                "explanation": "A set of values is not atomic; atomic domains contain indivisible values.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Atomic domain: each value is indivisible from the DBMS perspective.<br>2. Integer EmployeeID – atomic.<br>3. Decimal Salary – atomic.<br>4. Name as a single string – still atomic if the DBMS does not break it into first/last.<br>5. A set of phone numbers – not atomic because it contains multiple values; violates 1NF.<br><br><strong>Why the correct answer is correct:</strong><br>Multi‑valued attributes are explicitly prohibited by 1NF. A set is not a single atomic value.<br><br><strong>Why other options are incorrect:</strong><br>Options A, B, and C represent single, indivisible values under normal interpretation.<br><br><strong>How to approach this type of problem:</strong><br>Look for attributes that can contain multiple distinct values (arrays, sets, delimited strings).<br><br><strong>Concept used:</strong> Atomic domain.<br><strong>Points to remember:</strong><br>* Even a string is atomic if it is used as a whole.<br>* A collection (set, list, bag) is never atomic.<br><strong>Key takeaway:</strong> Atomic means the DBMS cannot see any internal structure."
+            },
+            {
+                "id": 9,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "The inability to insert a new department because no instructor has been assigned to it yet is an example of:",
+                "options": [
+                    "Insertion anomaly",
+                    "Deletion anomaly",
+                    "Update anomaly",
+                    "Referential integrity violation"
+                ],
+                "correct": 0,
+                "explanation": "Insertion anomaly occurs when a valid fact cannot be recorded without adding unrelated data.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Scenario: department exists, but we cannot add it because the table requires an instructor.<br>2. Insertion anomaly – exactly the inability to insert a valid tuple (department) without also inserting an instructor.<br>3. Deletion anomaly – would involve losing data upon deletion, not insertion.<br>4. Update anomaly – involves inconsistent updates.<br>5. Referential integrity – would involve foreign key violations, not the case here.<br><br><strong>Why the correct answer is correct:</strong><br>The lecture defines insertion anomaly as “insertion of a data record is not possible without adding some unrelated data.” Here the unrelated data is an instructor.<br><br><strong>Why other options are incorrect:</strong><br>* Deletion anomaly: opposite direction.<br>* Update anomaly: not about insertion.<br>* Referential integrity: would be violated if a department is referenced but missing; here the department is missing entirely.<br><br><strong>How to approach this type of problem:</strong><br>Ask: what operation is failing? Insert → insertion anomaly; delete → deletion anomaly; update → update anomaly.<br><br><strong>Concept used:</strong> Insertion anomaly.<br><strong>Points to remember:</strong><br>* Insertion anomaly occurs when you cannot add a fact without adding an unrelated fact.<br>* It is caused by combining independent entity types.<br><strong>Key takeaway:</strong> Insertion anomaly: can’t insert what you want without adding what you don’t want."
+            },
+            {
+                "id": 10,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following statements about functional dependencies is TRUE?",
+                "options": [
+                    "Functional dependencies can be inferred by examining a single instance of the relation.",
+                    "If \(A \\rightarrow B\) holds, then \(B \\rightarrow A\) also holds.",
+                    "Functional dependencies are a generalization of the concept of a superkey.",
+                    "All functional dependencies are trivial."
+                ],
+                "correct": 2,
+                "explanation": "A superkey \(K\) satisfies \(K \\rightarrow R\); FDs extend this idea to any attribute sets.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Option A: false – FDs are semantic rules that must hold for all possible instances; a single instance cannot prove an FD.<br>2. Option B: false – FDs are not symmetric; \(A \\rightarrow B\) does not imply \(B \\rightarrow A\).<br>3. Option C: true – a superkey is a special case where the RHS is the entire set of attributes.<br>4. Option D: false – only trivial FDs have RHS ⊆ LHS; most real FDs are non‑trivial.<br><br><strong>Why the correct answer is correct:</strong><br>The lecture states: “functional dependencies in that way is a generalization of the notion of key.” A key determines all attributes; an FD determines some attributes.<br><br><strong>Why other options are incorrect:</strong><br>* A: counterexample – current data might accidentally satisfy an FD that doesn’t actually hold.<br>* B: symmetric property does not hold for FDs.<br>* D: trivial FDs are a tiny subset.<br><br><strong>How to approach this type of problem:</strong><br>Recall the exact properties of FDs: not data‑derived, not symmetric, not all trivial, generalisation of keys.<br><br><strong>Concept used:</strong> Functional dependency properties.<br><strong>Points to remember:</strong><br>* FDs are constraints, not observations.<br>* Superkey ⇒ FD, but FD ⇏ superkey.<br><strong>Key takeaway:</strong> Every superkey gives an FD, but not every FD is a superkey."
+            },
+            {
+                "id": 11,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "A relation \(R\) has attributes \(A, B, C\). Which of the following functional dependencies is trivial?",
+                "options": [
+                    "\(A \\rightarrow B\)",
+                    "\(AB \\rightarrow B\)",
+                    "\(C \\rightarrow A\)",
+                    "\(AC \\rightarrow B\)"
+                ],
+                "correct": 1,
+                "explanation": "\(AB \\rightarrow B\) is trivial because RHS \(\{B\}\) is a subset of LHS \(\{A,B\}\).",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Trivial FD: RHS ⊆ LHS.<br>2. Option A: \(A \\rightarrow B\) – B ∉ {A} → non‑trivial.<br>3. Option B: \(AB \\rightarrow B\) – {B} ⊆ {A,B} → trivial.<br>4. Option C: \(C \\rightarrow A\) – {A} ⊈ {C} → non‑trivial.<br>5. Option D: \(AC \\rightarrow B\) – {B} ⊈ {A,C} → non‑trivial.<br><br><strong>Why the correct answer is correct:</strong><br>Because the right‑hand side attribute B appears on the left, the dependency holds automatically.<br><br><strong>Why other options are incorrect:</strong><br>Options A, C, D have RHS attributes not entirely contained in the LHS.<br><br><strong>How to approach this type of problem:</strong><br>Check if every attribute on the right appears on the left. If yes, trivial.<br><br><strong>Concept used:</strong> Trivial functional dependency.<br><strong>Points to remember:</strong><br>* Trivial FDs are always true and do not need to be enforced.<br>* They are often removed from a canonical cover.<br><strong>Key takeaway:</strong> RHS ⊆ LHS ⇒ trivial FD."
+            },
+            {
+                "id": 12,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider the relation \(R(A,B,C,D)\) with FD: \(AB \\rightarrow C\). Which of the following statements is true?",
+                "options": [
+                    "\(A \\rightarrow C\) must also hold.",
+                    "\(B \\rightarrow C\) must also hold.",
+                    "If two tuples have the same value for \(A\) and the same value for \(B\), they must have the same value for \(C\).",
+                    "If two tuples have the same value for \(C\), they must have the same value for \(A\) and \(B\)."
+                ],
+                "correct": 2,
+                "explanation": "The FD \(AB \\rightarrow C\) means that whenever \(A\) and \(B\) agree, \(C\) must agree.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. \(AB \\rightarrow C\) means: for any two tuples \(t_1, t_2\), if \(t_1[A]=t_2[A]\) and \(t_1[B]=t_2[B]\), then \(t_1[C]=t_2[C]\).<br>2. Option A: \(A \\rightarrow C\) is not implied; \(A\) alone may not determine \(C\).<br>3. Option B: similarly \(B \\rightarrow C\) is not implied.<br>4. Option C exactly restates the definition.<br>5. Option D is the converse (not implied).<br><br><strong>Why the correct answer is correct:</strong><br>It is the direct interpretation of the FD.<br><br><strong>Why other options are incorrect:</strong><br>Options A and B are stronger statements that do not follow from the given FD. Option D reverses the direction.<br><br><strong>How to approach this type of problem:</strong><br>Read the FD as: the left‑hand side together determines the right‑hand side.<br><br><strong>Concept used:</strong> Interpretation of functional dependency.<br><strong>Points to remember:</strong><br>* An FD does not imply that subsets of the left side determine the right side.<br>* The converse (RHS → LHS) is not implied.<br><strong>Key takeaway:</strong> \(X \\rightarrow Y\) only guarantees agreement on Y when the whole X agrees."
+            },
+            {
+                "id": 13,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following is a valid way to bring a relation with a multi‑valued attribute into 1NF?",
+                "options": [
+                    "Store the multiple values as a comma‑separated string in a single column.",
+                    "Create a separate table for the multi‑valued attribute, including the primary key of the original table.",
+                    "Create multiple columns (e.g., phone1, phone2, phone3) to accommodate the values.",
+                    "Ignore the multi‑valued attribute; 1NF does not require it to be removed."
+                ],
+                "correct": 1,
+                "explanation": "The standard relational solution is to create a separate table with the original key and the multi‑valued attribute.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. 1NF requires atomic, single‑valued attributes.<br>2. Option A (comma‑separated string) is not atomic; querying individual values is difficult.<br>3. Option B (separate table) is the correct decomposition method shown in the lecture.<br>4. Option C (multiple columns) fails when the number of values varies; also leads to nulls and awkward queries.<br>5. Option D is false; 1NF explicitly prohibits multi‑valued attributes.<br><br><strong>Why the correct answer is correct:</strong><br>The lecture demonstrates converting the Customer relation into Customer and CustomerPhone tables.<br><br><strong>Why other options are incorrect:</strong><br>* A: violates atomicity.<br>* C: does not handle variable number of values; violates the spirit of 1NF.<br>* D: contradicts the definition of 1NF.<br><br><strong>How to approach this type of problem:</strong><br>Remember: one table for the entity, another table for the multi‑valued attribute, linked by foreign key.<br><br><strong>Concept used:</strong> Converting to 1NF.<br><strong>Points to remember:</strong><br>* Do not use delimited strings.<br>* Do not use fixed columns.<br>* Always use a separate table.<br><strong>Key takeaway:</strong> Separate table for multi‑valued attribute is the only correct relational design."
+            },
+            {
+                "id": 14,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "In the context of database design, what does “lossless join” refer to?",
+                "options": [
+                    "The join operation does not lose any tuples.",
+                    "The original relation can be reconstructed exactly from its decomposed relations by natural join.",
+                    "The decomposition does not introduce any new functional dependencies.",
+                    "The decomposition preserves all foreign key constraints."
+                ],
+                "correct": 1,
+                "explanation": "Lossless join means the natural join of the projections gives back the original relation exactly.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Lossless join decomposition is defined in the lecture.<br>2. Option A is vague; “does not lose any tuples” could be misinterpreted.<br>3. Option B matches the precise definition: \(R = \pi_{R1}(R) \bowtie \pi_{R2}(R)\) for any instance.<br>4. Option C describes dependency preservation, not lossless join.<br>5. Option D is about referential integrity, unrelated.<br><br><strong>Why the correct answer is correct:</strong><br>The lecture explicitly states: “lossless join decomposition … if you take a natural join, you must get back that original relation.”<br><br><strong>Why other options are incorrect:</strong><br>* A: could be true but not precise; lossless join is about reconstructability, not just keeping all tuples.<br>* C and D are different properties.<br><br><strong>How to approach this type of problem:</strong><br>Memorise the exact wording: original = join of projections.<br><br><strong>Concept used:</strong> Lossless join.<br><strong>Points to remember:</strong><br>* Lossless join is about information preservation.<br>* It is a necessary condition for a good decomposition.<br><strong>Key takeaway:</strong> Lossless join guarantees no information is lost."
+            },
+            {
+                "id": 15,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider a relation \(R(X,Y,Z)\) with functional dependencies \(X \\rightarrow Y\) and \(Y \\rightarrow Z\). Which of the following FDs can be derived?",
+                "options": [
+                    "\(X \\rightarrow Z\)",
+                    "\(Z \\rightarrow X\)",
+                    "\(Y \\rightarrow X\)",
+                    "\(Z \\rightarrow Y\)"
+                ],
+                "correct": 0,
+                "explanation": "By transitivity, \(X \\rightarrow Y\) and \(Y \\rightarrow Z\) imply \(X \\rightarrow Z\).",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Given: \(X \\rightarrow Y\) and \(Y \\rightarrow Z\).<br>2. Transitivity rule (Armstrong’s axioms): if \(X \\rightarrow Y\) and \(Y \\rightarrow Z\), then \(X \\rightarrow Z\).<br>3. Thus \(X \\rightarrow Z\) can be derived.<br>4. The other options are not implied by the given FDs.<br><br><strong>Why the correct answer is correct:</strong><br>Transitivity is a valid inference rule.<br><br><strong>Why other options are incorrect:</strong><br>No rule allows deriving the reverse dependencies from the given ones.<br><br><strong>How to approach this type of problem:</strong><br>Apply Armstrong’s axioms: reflexivity, augmentation, transitivity.<br><br><strong>Concept used:</strong> Inference of functional dependencies.<br><strong>Points to remember:</strong><br>* Transitivity: \(X \\rightarrow Y\) and \(Y \\rightarrow Z\) ⇒ \(X \\rightarrow Z\).<br>* FDs are not symmetric.<br><strong>Key takeaway:</strong> Transitivity allows chaining FDs."
+            },
+            {
+                "id": 16,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following is NOT a characteristic of an atomic domain?",
+                "options": [
+                    "Values are indivisible from the DBMS perspective.",
+                    "Composite attributes like ‘Name’ split into first and last name are allowed if stored as separate attributes.",
+                    "A set of phone numbers stored in a single column is acceptable if they are separated by commas.",
+                    "Integer, decimal, and string are typical atomic domains."
+                ],
+                "correct": 2,
+                "explanation": "A comma‑separated list is not atomic because the DBMS can see the internal structure (commas).",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Atomic domain: indivisible unit.<br>2. Option A correctly describes atomicity.<br>3. Option B is acceptable because splitting into separate attributes makes each atomic.<br>4. Option C is false: a comma‑separated string is not atomic; applications must parse it.<br>5. Option D lists common atomic types.<br><br><strong>Why the correct answer is correct:</strong><br>The lecture explicitly rejects storing multiple values in a single column as a violation of 1NF.<br><br><strong>Why other options are incorrect:</strong><br>Options A, B, D are correct statements about atomic domains.<br><br><strong>How to approach this type of problem:</strong><br>Look for any representation that requires the DBMS to interpret part of the value – that indicates non‑atomicity.<br><br><strong>Concept used:</strong> Atomic domain.<br><strong>Points to remember:</strong><br>* Even a string is atomic if used as a whole.<br>* Delimited strings are not atomic.<br><strong>Key takeaway:</strong> If you need to split the value to extract meaningful parts, the domain is not atomic."
+            },
+            {
+                "id": 17,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Suppose a relation \(R\) is decomposed into \(R_1\) and \(R_2\). Which condition guarantees that the decomposition is lossless?",
+                "options": [
+                    "\(R_1 \\cap R_2 = \\emptyset\)",
+                    "\(R_1 \\cap R_2 \\neq \\emptyset\)",
+                    "\(R_1 \\cap R_2\) is a candidate key for either \(R_1\) or \(R_2\)",
+                    "\(R_1 \\cup R_2 = R\)"
+                ],
+                "correct": 2,
+                "explanation": "The common attributes must be a superkey (candidate key is sufficient) in one of the decomposed relations.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Lossless condition: \((R_1 \\cap R_2) \\rightarrow R_1\) or \((R_1 \\cap R_2) \\rightarrow R_2\).<br>2. Option A: empty intersection makes join a Cartesian product → lossy.<br>3. Option B: non‑empty is necessary but not sufficient.<br>4. Option C: candidate key implies superkey, satisfying the condition.<br>5. Option D: attribute coverage is necessary but not sufficient.<br><br><strong>Why the correct answer is correct:</strong><br>If the intersection is a candidate key in \(R_1\), then it functionally determines all attributes of \(R_1\), fulfilling the sufficient condition.<br><br><strong>Why other options are incorrect:</strong><br>Options A and D are not sufficient; Option B is necessary but not sufficient.<br><br><strong>How to approach this type of problem:</strong><br>Always check the intersection – key condition.<br><br><strong>Concept used:</strong> Lossless decomposition condition.<br><strong>Points to remember:</strong><br>* Candidate key is a superkey.<br>* The condition is “superkey”, not necessarily candidate key.<br><strong>Key takeaway:</strong> Intersection must be a superkey in at least one of the two relations."
+            },
+            {
+                "id": 18,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following is an example of an insertion anomaly?",
+                "options": [
+                    "Deleting a course causes loss of student enrollment information.",
+                    "Unable to add a new student because the student has not yet enrolled in any course.",
+                    "Changing a student’s name requires updating multiple records.",
+                    "Adding a new department without any faculty is possible."
+                ],
+                "correct": 1,
+                "explanation": "Insertion anomaly: cannot insert a valid fact (student) without unrelated data (enrollment).",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Insertion anomaly: inability to insert a tuple because required information is missing, even though the core entity is valid.<br>2. Option A: deletion anomaly.<br>3. Option B: cannot add a student without enrollment – classic insertion anomaly.<br>4. Option C: update anomaly.<br>5. Option D: describes a situation that is not anomalous (possible to add department).<br><br><strong>Why the correct answer is correct:</strong><br>It matches the lecture’s example: unable to add a department without an instructor. Here, student without enrollment.<br><br><strong>Why other options are incorrect:</strong><br>Option A is deletion anomaly; Option C is update anomaly; Option D is normal operation.<br><br><strong>How to approach this type of problem:</strong><br>Identify what operation is prevented. Insertion anomaly prevents insert.<br><br><strong>Concept used:</strong> Insertion anomaly.<br><strong>Points to remember:</strong><br>* Insertion anomaly occurs when the table combines two independent entity types.<br>* The fix is decomposition.<br><strong>Key takeaway:</strong> Insertion anomaly: you cannot insert an entity without another unrelated entity."
+            },
+            {
+                "id": 19,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "In the relational model, the assumption that all relations are in 1NF implies that:",
+                "options": [
+                    "Every attribute value is a single, indivisible value.",
+                    "There are no multi‑valued dependencies.",
+                    "All functional dependencies are trivial.",
+                    "The relation has a composite primary key."
+                ],
+                "correct": 0,
+                "explanation": "1NF requires atomic domains and no repeating groups, i.e., each value is indivisible.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. 1NF definition: atomic domains, no repeating groups.<br>2. Option A directly states “single, indivisible value” – that is atomicity.<br>3. Option B: multi‑valued dependencies are a higher normal form concept (4NF).<br>4. Option C: false; non‑trivial FDs are allowed.<br>5. Option D: not required; a relation can have a single‑attribute key.<br><br><strong>Why the correct answer is correct:</strong><br>It captures the essence of 1NF.<br><br><strong>Why other options are incorrect:</strong><br>B, C, D are not implied by 1NF.<br><br><strong>How to approach this type of problem:</strong><br>Remember that 1NF is only about the shape of attribute values, not about dependencies or key structure.<br><br><strong>Concept used:</strong> First Normal Form.<br><strong>Points to remember:</strong><br>* 1NF is a prerequisite for all other normal forms.<br>* It does not address functional dependencies.<br><strong>Key takeaway:</strong> 1NF = atomicity + single‑valued."
+            },
+            {
+                "id": 20,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following best describes the purpose of normalisation?",
+                "options": [
+                    "To increase the number of tables in the database.",
+                    "To reduce redundancy and eliminate anomalies.",
+                    "To make queries run faster.",
+                    "To enforce primary key constraints."
+                ],
+                "correct": 1,
+                "explanation": "Normalisation aims to reduce redundancy and the associated insertion, deletion, and update anomalies.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Normalisation theory was developed to improve database design by minimising redundancy.<br>2. Option A (increase tables) is a side effect, not the purpose.<br>3. Option B correctly states the main purpose: reduce redundancy and eliminate anomalies.<br>4. Option C (faster queries) is sometimes opposite; normalised designs may require joins, slowing queries.<br>5. Option D (primary key enforcement) is important but not the goal of normalisation.<br><br><strong>Why the correct answer is correct:</strong><br>The lecture states: “normalisation gives you good decomposition. Good decomposition leads to minimisation of dependency. Minimisation of dependency leads to minimisation of redundancy and that leads to minimisation of anomaly.”<br><br><strong>Why other options are incorrect:</strong><br>Option A is a means, not the end; Option C is often a trade‑off; Option D is independent.<br><br><strong>How to approach this type of problem:</strong><br>Focus on the core problem that normalisation solves: redundancy and anomalies.<br><br><strong>Concept used:</strong> Normalisation purpose.<br><strong>Points to remember:</strong><br>* Normalisation reduces redundancy.<br>* It may increase the number of tables.<br>* Performance is a separate consideration.<br><strong>Key takeaway:</strong> Normalisation primarily fights redundancy and anomalies."
+            },
+            {
+                "id": 21,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider a relation that stores employee information along with the department budget. If the budget of a department is updated in only some of the tuples, this leads to which anomaly?",
+                "options": [
+                    "Insertion anomaly",
+                    "Deletion anomaly",
+                    "Update anomaly",
+                    "Redundancy anomaly"
+                ],
+                "correct": 2,
+                "explanation": "Update anomaly occurs when redundant data is not updated consistently, causing different values for the same fact.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. The scenario describes updating the budget (same fact) in only some tuples.<br>2. Insertion anomaly would involve inability to insert.<br>3. Deletion anomaly would involve losing data on delete.<br>4. Update anomaly exactly matches: inconsistent updates due to redundancy.<br>5. “Redundancy anomaly” is not a standard term.<br><br><strong>Why the correct answer is correct:</strong><br>The lecture defines update anomaly as inconsistency caused by updating some copies of redundant data but not all.<br><br><strong>Why other options are incorrect:</strong><br>Insertion and deletion anomalies involve different operations; redundancy anomaly is not a defined type.<br><br><strong>How to approach this type of problem:</strong><br>Identify the operation: update → update anomaly. Then check if redundancy caused the problem.<br><br><strong>Concept used:</strong> Update anomaly.<br><strong>Points to remember:</strong><br>* Update anomaly occurs when the same data is stored multiple times and only some copies are updated.<br>* It leads to inconsistent database state.<br><strong>Key takeaway:</strong> Update anomaly = partial update of redundant copies."
+            },
+            {
+                "id": 22,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following statements about a superkey is correct?",
+                "options": [
+                    "A superkey is a minimal set of attributes that uniquely identifies a tuple.",
+                    "Every superkey is a candidate key.",
+                    "A superkey can be used to functionally determine all attributes of the relation.",
+                    "A superkey cannot have any extraneous attributes."
+                ],
+                "correct": 2,
+                "explanation": "By definition, a superkey \(K\) satisfies \(K \\rightarrow R\) (all attributes).",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Definition of superkey: a set of attributes that uniquely identifies a tuple; i.e., \(K \\rightarrow R\).<br>2. Option A describes a candidate key (minimal superkey), not superkey in general.<br>3. Option B is false: candidate keys are minimal superkeys, but not every superkey is minimal.<br>4. Option C is true: a superkey functionally determines all attributes.<br>5. Option D is false: a superkey may have extraneous attributes; removing them yields a candidate key.<br><br><strong>Why the correct answer is correct:</strong><br>The lecture links superkey to functional dependency: \(K \\rightarrow R\).<br><br><strong>Why other options are incorrect:</strong><br>Option A and B confuse superkey with candidate key; Option D is false because superkeys can be non‑minimal.<br><br><strong>How to approach this type of problem:</strong><br>Recall: superkey ⇒ FD to all attributes; candidate key = minimal superkey.<br><br><strong>Concept used:</strong> Superkey definition.<br><strong>Points to remember:</strong><br>* Every candidate key is a superkey, but not conversely.<br>* A superkey may contain extra attributes.<br><strong>Key takeaway:</strong> A superkey determines the entire tuple."
+            },
+            {
+                "id": 23,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "What does the functional dependency \( \text{city} \rightarrow \text{pincode} \) imply?",
+                "options": [
+                    "Every city has a unique pincode.",
+                    "Every pincode belongs to a unique city.",
+                    "The pincode determines the city.",
+                    "Cities and pincodes are independent."
+                ],
+                "correct": 0,
+                "explanation": "\( \text{city} \rightarrow \text{pincode} \) means that if two tuples have the same city, they must have the same pincode – i.e., each city has a unique pincode.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. FD \(X \\rightarrow Y\): \(X\) uniquely determines \(Y\).<br>2. Here \(X = \text{city}\), \(Y = \text{pincode}\).<br>3. So each city value determines exactly one pincode.<br>4. Option A matches: each city has a unique pincode.<br>5. Option B is the reverse FD (\(\text{pincode} \rightarrow \text{city}\)), not implied.<br>6. Option C is the reverse direction.<br>7. Option D contradicts the FD.<br><br><strong>Why the correct answer is correct:</strong><br>It directly interprets the FD.<br><br><strong>Why other options are incorrect:</strong><br>Options B and C reverse the direction; Option D denies any dependency.<br><br><strong>How to approach this type of problem:</strong><br>Read \(X \\rightarrow Y\) as “\(X\) determines \(Y\)” → “each \(X\) value has exactly one \(Y\) value”.<br><br><strong>Concept used:</strong> Interpretation of functional dependency.<br><strong>Points to remember:</strong><br>* \(X \\rightarrow Y\) does not imply \(Y \\rightarrow X\).<br>* It is about uniqueness of \(Y\) per \(X\), not uniqueness of \(X\) per \(Y\).<br><strong>Key takeaway:</strong> \(X \\rightarrow Y\) means \(X\) is a key for \(Y\) (in the functional sense)."
+            },
+            {
+                "id": 24,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "A relation has attributes \(A, B, C, D\). The functional dependency \(A \\rightarrow B\) holds. Which of the following must also hold?",
+                "options": [
+                    "\(A \\rightarrow BC\)",
+                    "\(AB \\rightarrow C\)",
+                    "\(AC \\rightarrow B\)",
+                    "\(B \\rightarrow A\)"
+                ],
+                "correct": 2,
+                "explanation": "By augmentation, adding \(C\) to both sides of \(A \\rightarrow B\) gives \(AC \\rightarrow BC\). Then by decomposition, \(AC \\rightarrow B\) holds.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Given: \(A \\rightarrow B\).<br>2. Augmentation rule: add \(C\) to both sides → \(AC \\rightarrow BC\).<br>3. Decomposition rule: from \(AC \\rightarrow BC\), we can derive \(AC \\rightarrow B\) (since \(B \\subseteq BC\)).<br>4. Option A: \(A \\rightarrow BC\) is not necessarily true; \(A\) does not determine \(C\).<br>5. Option B: \(AB \\rightarrow C\) does not follow.<br>6. Option C: \(AC \\rightarrow B\) follows as shown.<br>7. Option D: \(B \\rightarrow A\) is not implied.<br><br><strong>Why the correct answer is correct:</strong><br>Using Armstrong’s axioms, augmentation then decomposition yields \(AC \\rightarrow B\).<br><br><strong>Why other options are incorrect:</strong><br>They cannot be derived from the given FD alone.<br><br><strong>How to approach this type of problem:</strong><br>Apply augmentation and decomposition. Adding attributes to both sides preserves the FD, and then you can drop attributes from the right.<br><br><strong>Concept used:</strong> Armstrong’s axioms (augmentation, decomposition).<br><strong>Points to remember:</strong><br>* Augmentation: if \(X \\rightarrow Y\), then \(XZ \\rightarrow YZ\).<br>* Decomposition: if \(X \\rightarrow YZ\), then \(X \\rightarrow Y\) and \(X \\rightarrow Z\).<br><strong>Key takeaway:</strong> You can always add attributes to both sides of an FD."
+            },
+            {
+                "id": 25,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider a relation \(R(A,B,C)\) with the following instance: \((1,2,3), (1,3,4), (2,2,5)\). Which of the following functional dependencies definitely holds in this instance?",
+                "options": [
+                    "\(A \\rightarrow B\)",
+                    "\(B \\rightarrow C\)",
+                    "\(C \\rightarrow A\)",
+                    "\(A \\rightarrow C\)"
+                ],
+                "correct": 2,
+                "explanation": "Only \(C \\rightarrow A\) holds in this instance because each C value appears at most once.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Test each FD using the tuple set \((1,2,3), (1,3,4), (2,2,5)\).<br>2. \(A \\rightarrow B\) is false: A=1 appears with B=2 and B=3.<br>3. \(B \\rightarrow C\) is false: B=2 appears with C=3 and C=5.<br>4. \(A \\rightarrow C\) is false: A=1 appears with C=3 and C=4.<br>5. \(C \\rightarrow A\) holds in this instance because no C value repeats with conflicting A values.<br><br><strong>Why the correct answer is correct:</strong><br>\(C \\rightarrow A\) has no counterexample in the given rows, while the other three options do.<br><br><strong>How to approach this type of problem:</strong><br>For each FD, find two tuples with the same left side; if the right side differs, the FD is violated.<br><br><strong>Concept used:</strong> Testing functional dependencies from a relation instance.<br><strong>Key takeaway:</strong> A single counterexample disproves an FD; absence of counterexamples means it holds for this instance."
+            },
+            {
+                "id": 26,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following is a correct statement about lossy decomposition?",
+                "options": [
+                    "Lossy decomposition always produces fewer tuples than the original relation.",
+                    "Lossy decomposition cannot be avoided in BCNF.",
+                    "Lossy decomposition may produce spurious tuples when the relations are joined.",
+                    "Lossy decomposition is desirable for performance."
+                ],
+                "correct": 2,
+                "explanation": "A lossy decomposition can produce extra (spurious) tuples upon natural join.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Lossy decomposition means the original relation cannot be reconstructed exactly.<br>2. The lecture shows an example where lossy decomposition created additional tuples (spurious tuples).<br>3. Option A is false: lossy decomposition often produces more tuples, not fewer.<br>4. Option B is false: BCNF decompositions can be lossless.<br>5. Option C is true: spurious tuples are a hallmark of lossy decomposition.<br>6. Option D is false: lossy decomposition is never desirable for performance because it corrupts data.<br><br><strong>Why the correct answer is correct:</strong><br>Spurious tuples are extra, incorrect tuples that appear when joining a lossy decomposition.<br><br><strong>Why other options are incorrect:</strong><br>A: counterexample – supplier‑parts example produced more tuples.<br>B: BCNF aims for lossless decompositions.<br>D: lossy decomposition loses information, so it is not desirable.<br><br><strong>How to approach this type of problem:</strong><br>Remember that lossy = spurious tuples. Lossless = exact reconstruction.<br><br><strong>Concept used:</strong> Lossy decomposition.<br><strong>Points to remember:</strong><br>* Spurious tuples are extra, incorrect rows.<br>* Lossy decomposition is always undesirable.<br><strong>Key takeaway:</strong> Lossy decomposition leads to information loss and spurious tuples."
+            },
+            {
+                "id": 27,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider the relation \(R(A,B,C,D)\) and the functional dependency \(AB \\rightarrow C\). Which additional FD would make \(AB\) a superkey?",
+                "options": [
+                    "\(C \\rightarrow A\)",
+                    "\(AB \\rightarrow D\)",
+                    "\(A \\rightarrow B\)",
+                    "\(B \\rightarrow C\)"
+                ],
+                "correct": 1,
+                "explanation": "A superkey must determine all attributes. Since \(AB \\rightarrow C\) is already given, adding \(AB \\rightarrow D\) lets AB determine C and D (and A,B trivially), so AB determines all attributes.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. A superkey for \(R(A,B,C,D)\) must determine A, B, C, and D.<br>2. \(AB\) already determines A and B trivially.<br>3. Given FD: \(AB \\rightarrow C\), so C is determined.<br>4. We still need D. Adding \(AB \\rightarrow D\) gives D directly.<br>5. Therefore AB determines all attributes, so AB is a superkey.<br><br><strong>Why the other options are incorrect:</strong><br>• \(C \\rightarrow A\): does not provide D from AB.<br>• \(A \\rightarrow B\): does not provide D.<br>• \(B \\rightarrow C\): does not provide D.<br><br><strong>Concept used:</strong> Superkey definition and FD closure.<br><strong>Key takeaway:</strong> To make AB a superkey, the missing attribute D must also be functionally determined by AB."
+            },
+            {
+                "id": 28,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "What is the main difference between a superkey and a candidate key?",
+                "options": [
+                    "A superkey is always a candidate key.",
+                    "A candidate key is a minimal superkey.",
+                    "A superkey cannot have NULL values.",
+                    "Candidate keys are always composite."
+                ],
+                "correct": 1,
+                "explanation": "A candidate key is a minimal superkey; i.e., no proper subset is a superkey.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Definition: superkey = set of attributes that uniquely identifies a tuple.<br>2. Candidate key = minimal superkey (no proper subset is a superkey).<br>3. Option A is false: not every superkey is minimal.<br>4. Option B is true.<br>5. Option C: both can have NULL? Primary keys cannot have NULL, but superkeys/candidate keys in general may allow NULL depending on definition; not the main difference.<br>6. Option D: false; candidate keys can be single‑attribute.<br><br><strong>Why the correct answer is correct:</strong><br>The lecture defines candidate key as minimal superkey.<br><br><strong>Why other options are incorrect:</strong><br>Options A, C, D are either false or not the defining difference.<br><br><strong>How to approach this type of problem:</strong><br>Remember: candidate key = minimal superkey. The difference is minimality.<br><br><strong>Concept used:</strong> Superkey vs candidate key.<br><strong>Points to remember:</strong><br>* Every candidate key is a superkey.<br>* A superkey may contain extra attributes.<br><strong>Key takeaway:</strong> Candidate keys are the smallest superkeys."
+            },
+            {
+                "id": 29,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Suppose a relation \(R\) is in 1NF. Which of the following statements is true?",
+                "options": [
+                    "\(R\) has no partial dependencies.",
+                    "\(R\) has no transitive dependencies.",
+                    "All attributes are atomic and each attribute contains a single value.",
+                    "Every non‑prime attribute is fully functionally dependent on the primary key."
+                ],
+                "correct": 2,
+                "explanation": "1NF only requires atomic domains and single‑valued attributes.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. 1NF definition: atomic domains, no repeating groups.<br>2. Option A describes 2NF (partial dependencies).<br>3. Option B describes 3NF (transitive dependencies).<br>4. Option C exactly restates 1NF.<br>5. Option D describes 2NF.<br><br><strong>Why the correct answer is correct:</strong><br>It matches the lecture's definition of 1NF.<br><br><strong>Why other options are incorrect:</strong><br>Options A, B, D are conditions for higher normal forms, not for 1NF.<br><br><strong>How to approach this type of problem:</strong><br>Know the hierarchy: 1NF → 2NF → 3NF → BCNF, each adding more conditions.<br><br><strong>Concept used:</strong> First Normal Form.<br><strong>Points to remember:</strong><br>* 1NF is only about attribute structure.<br>* Higher normal forms address functional dependencies.<br><strong>Key takeaway:</strong> 1NF does not involve functional dependencies."
+            },
+            {
+                "id": 30,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following is an example of a composite attribute that can be made atomic by splitting?",
+                "options": [
+                    "EmployeeID (integer)",
+                    "Salary (decimal)",
+                    "FullName (string)",
+                    "DateOfBirth (date)"
+                ],
+                "correct": 2,
+                "explanation": "FullName can be split into FirstName and LastName to make atomic attributes.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Atomic domain: indivisible.<br>2. EmployeeID, Salary, DateOfBirth are typically atomic (though date could be split, but usually treated as atomic).<br>3. FullName is often composite (first, last). It can be split into two atomic attributes.<br>4. Option C is the best example.<br><br><strong>Why the correct answer is correct:</strong><br>The lecture mentions that Name is a composite attribute; splitting it into FirstName and LastName makes it 1NF compliant.<br><br><strong>Why other options are incorrect:</strong><br>Options A, B, D are already atomic in typical usage.<br><br><strong>How to approach this type of problem:</strong><br>Look for attributes that contain multiple logical components (e.g., full name, address).<br><br><strong>Concept used:</strong> Composite vs atomic attributes.<br><strong>Points to remember:</strong><br>* Splitting a composite attribute into multiple atomic attributes is fine.<br>* The DBMS should not need to parse the value.<br><strong>Key takeaway:</strong> Composite attributes violate 1NF and should be split."
+            },
+            {
+                "id": 31,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider a relation that has a single candidate key. If the relation is in 1NF, is it necessarily in 2NF?",
+                "options": [
+                    "Yes, because a single candidate key implies no partial dependencies.",
+                    "No, because partial dependencies can still exist on the primary key.",
+                    "Yes, because 1NF automatically implies 2NF.",
+                    "No, but it will be in 3NF."
+                ],
+                "correct": 1,
+                "explanation": "Even with a single candidate key, if the key is composite and a non‑prime attribute depends on only part of the key, the relation is not in 2NF.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. 2NF requires no partial dependency of non‑prime attributes on any candidate key.<br>2. If the candidate key is composite (e.g., (A,B)), a non‑prime attribute that depends only on A (a proper subset) would violate 2NF.<br>3. Option A is false; a single candidate key does not guarantee it is non‑composite.<br>4. Option B is true.<br>5. Option C is false; 1NF does not imply 2NF.<br>6. Option D is false; it might not even be in 2NF.<br><br><strong>Why the correct answer is correct:</strong><br>Partial dependencies can exist even with a single candidate key if that key is composite.<br><br><strong>Why other options are incorrect:</strong><br>Options A, C, D are false statements.<br><br><strong>How to approach this type of problem:</strong><br>Remember that 2NF is about partial dependencies on composite keys.<br><br><strong>Concept used:</strong> 2NF and partial dependency.<br><strong>Points to remember:</strong><br>* A relation with a single‑attribute candidate key is automatically in 2NF.<br>* A relation with a composite candidate key may still have partial dependencies.<br><strong>Key takeaway:</strong> Single candidate key does not guarantee 2NF if the key is composite."
+            },
+            {
+                "id": 32,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following is a valid reason to decompose a relation?",
+                "options": [
+                    "To reduce the number of attributes.",
+                    "To eliminate redundancy and the associated anomalies.",
+                    "To make the relation smaller for faster backups.",
+                    "To comply with SQL standards."
+                ],
+                "correct": 1,
+                "explanation": "The primary motivation for decomposition is to reduce redundancy and eliminate anomalies.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Decomposition in database design is driven by normalisation theory.<br>2. The lecture emphasises that redundancy leads to anomalies, and decomposition removes redundancy.<br>3. Option A: reducing number of attributes per table is a side effect, not the goal.<br>4. Option B correctly states the goal.<br>5. Option C: backup size is not a design driver.<br>6. Option D: SQL standards do not mandate decomposition.<br><br><strong>Why the correct answer is correct:</strong><br>It aligns with the lecture’s explanation of normalisation.<br><br><strong>Why other options are incorrect:</strong><br>Options A, C, D are not the primary reasons.<br><br><strong>How to approach this type of problem:</strong><br>Focus on the theoretical purpose of decomposition: improve design by reducing redundancy and anomalies.<br><br><strong>Concept used:</strong> Purpose of decomposition.<br><strong>Points to remember:</strong><br>* Decomposition is a tool to achieve normalisation.<br>* It may increase the number of tables.<br><strong>Key takeaway:</strong> Decompose to eliminate redundancy and anomalies."
+            },
+            {
+                "id": 33,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Suppose we have a relation \(R(A,B,C)\) with the following functional dependencies: \(A \\rightarrow B\) and \(B \\rightarrow C\). Which of the following is a superkey?",
+                "options": [
+                    "\(A\)",
+                    "\(B\)",
+                    "\(C\)",
+                    "\(AC\)"
+                ],
+                "correct": 0,
+                "explanation": "\(A \\rightarrow B\) and \(B \\rightarrow C\) imply \(A \\rightarrow C\). Thus \(A\) determines all attributes, so \(A\) is a superkey.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Given FDs: \(A \\rightarrow B\), \(B \\rightarrow C\).<br>2. By transitivity, \(A \\rightarrow C\).<br>3. Also \(A \\rightarrow A\) (reflexivity). So \(A\) determines \(A, B, C\) – all attributes.<br>4. Therefore \(A\) is a superkey.<br>5. Check \(B\): \(B \\rightarrow C\) but \(B\) does not determine \(A\) (no FD \(B \\rightarrow A\)). So \(B\) is not a superkey.<br>6. \(C\) alone determines nothing else.<br>7. \(AC\) is also a superkey (since \(A\) already is), but the question asks “which of the following” and \(A\) is a valid superkey.<br><br><strong>Why the correct answer is correct:</strong><br>\(A\) functionally determines all attributes, satisfying superkey definition.<br><br><strong>Why other options are incorrect:</strong><br>\(B\) and \(C\) do not determine all attributes; \(AC\) is also a superkey but the simplest correct answer is \(A\).<br><br><strong>How to approach this type of problem:</strong><br>Compute the closure of each candidate. If closure = all attributes, it's a superkey.<br><br><strong>Concept used:</strong> Superkey and attribute closure.<br><strong>Points to remember:</strong><br>* A superkey may be a single attribute.<br>* Transitivity helps determine closure.<br><strong>Key takeaway:</strong> Compute closure to test superkey."
+            },
+            {
+                "id": 34,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "What is a trivial functional dependency?",
+                "options": [
+                    "An FD that is always true regardless of the instance.",
+                    "An FD that involves only the primary key.",
+                    "An FD that has the same attributes on both sides.",
+                    "An FD that cannot be derived from other FDs."
+                ],
+                "correct": 0,
+                "explanation": "A trivial FD is one where the right‑hand side is a subset of the left‑hand side, and it holds for any instance.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Definition: \(X \\rightarrow Y\) is trivial if \(Y \\subseteq X\).<br>2. Such FDs are always true because if two tuples agree on X, they certainly agree on any subset of X.<br>3. Option A captures this property: always true.<br>4. Option B is false; trivial FDs need not involve the primary key.<br>5. Option C is a subset of the definition (same attributes) but not complete; e.g., \(AB \\rightarrow A\) is trivial, but \(A \\rightarrow A\) is also trivial; the condition is subset, not necessarily same.<br>6. Option D is false; trivial FDs can be derived.<br><br><strong>Why the correct answer is correct:</strong><br>It describes the essential property of trivial FDs.<br><br><strong>Why other options are incorrect:</strong><br>B, C, D are either incomplete or incorrect.<br><br><strong>How to approach this type of problem:</strong><br>Remember: trivial = RHS ⊆ LHS, always true.<br><br><strong>Concept used:</strong> Trivial functional dependency.<br><strong>Points to remember:</strong><br>* Trivial FDs do not add any constraint.<br>* They are often removed from canonical covers.<br><strong>Key takeaway:</strong> Trivial FD = always satisfied."
+            },
+            {
+                "id": 35,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider the relation \(R(X,Y,Z)\) with functional dependency \(X \\rightarrow Y\). If we decompose \(R\) into \(R_1(X,Y)\) and \(R_2(X,Z)\), is this decomposition lossless?",
+                "options": [
+                    "Yes, because the intersection is \(X\), which is a superkey in \(R_1\).",
+                    "No, because the intersection is empty.",
+                    "Yes, because the union covers all attributes.",
+                    "No, because \(X\) is not a superkey in \(R_2\)."
+                ],
+                "correct": 0,
+                "explanation": "The intersection is \(X\). \(X \\rightarrow Y\) is given, and \(X \\rightarrow X\) trivially, so \(X\) determines all attributes of \(R_1\) (X and Y). Thus \(X\) is a superkey in \(R_1\), satisfying the lossless join condition.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Lossless condition for binary decomposition: \(R_1 \\cap R_2 \\rightarrow R_1\) or \(R_1 \\cap R_2 \\rightarrow R_2\).<br>2. Here \(R_1 = (X,Y)\), \(R_2 = (X,Z)\). Intersection = \(\{X\}\).<br>3. Does \(X\) determine all attributes of \(R_1\)? We have \(X \\rightarrow Y\) (given) and \(X \\rightarrow X\) (trivial). So \(X \\rightarrow XY\), i.e., \(X\) is a superkey of \(R_1\).<br>4. Therefore the decomposition is lossless.<br>5. Option A correctly states this.<br>6. Option B is false; intersection is not empty.<br>7. Option C is necessary but not sufficient; union coverage alone does not guarantee losslessness.<br>8. Option D is irrelevant because we only need the intersection to be a superkey in at least one of the two.<br><br><strong>Why the correct answer is correct:</strong><br>It applies the lossless join condition correctly.<br><br><strong>Why other options are incorrect:</strong><br>B, C, D are either false or not the primary reason.<br><br><strong>How to approach this type of problem:</strong><br>Find the intersection; check if it is a superkey in either of the decomposed relations.<br><br><strong>Concept used:</strong> Lossless join decomposition.<br><strong>Points to remember:</strong><br>* Intersection must be a superkey in at least one of the two.<br>* Use given FDs to check superkey property.<br><strong>Key takeaway:</strong> Intersection key condition is sufficient for lossless join."
+            },
+            {
+                "id": 36,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following is NOT a property of a good relational database design?",
+                "options": [
+                    "Minimisation of redundancy",
+                    "Avoidance of insertion and deletion anomalies",
+                    "Presence of as many tables as possible",
+                    "Clean and consistent structure"
+                ],
+                "correct": 2,
+                "explanation": "Having many tables is not a goal; the goal is to have a design that is normalised and free of anomalies, which may increase the number of tables but not arbitrarily.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Good design goals: avoid redundancy, avoid anomalies, clean & consistent, efficient access, etc.<br>2. Option A is a goal.<br>3. Option B is a goal.<br>4. Option C: “as many tables as possible” is not a goal; normalisation may increase the number of tables, but that is a means, not an end.<br>5. Option D is a goal.<br><br><strong>Why the correct answer is correct:</strong><br>The number of tables is not a quality metric; over‑decomposition can be harmful.<br><br><strong>Why other options are incorrect:</strong><br>Options A, B, D are explicitly mentioned as good design goals in the lecture.<br><br><strong>How to approach this type of problem:</strong><br>Recall the list of design goals from the lecture. Anything not on that list (or opposite) is the answer.<br><br><strong>Concept used:</strong> Good design goals.<br><strong>Points to remember:</strong><br>* Quality is about structure, not count.<br>* Normalisation may increase table count, but that is a consequence, not a goal.<br><strong>Key takeaway:</strong> More tables is not inherently better."
+            },
+            {
+                "id": 37,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider the relation \(R(A,B,C,D)\) with functional dependencies \(A \\rightarrow B\) and \(C \\rightarrow D\). Which of the following is true?",
+                "options": [
+                    "\(A \\rightarrow D\) must hold.",
+                    "\(C \\rightarrow B\) must hold.",
+                    "\(AC \\rightarrow BD\) must hold.",
+                    "\(BD \\rightarrow AC\) must hold."
+                ],
+                "correct": 2,
+                "explanation": "By augmentation, from \(A \\rightarrow B\) we get \(AC \\rightarrow BC\); from \(C \\rightarrow D\) we get \(AC \\rightarrow AD\); then by union, \(AC \\rightarrow BD\).",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Given: \(A \\rightarrow B\) and \(C \\rightarrow D\).<br>2. Augment \(A \\rightarrow B\) with \(C\): \(AC \\rightarrow BC\).<br>3. Augment \(C \\rightarrow D\) with \(A\): \(AC \\rightarrow AD\).<br>4. Using union rule (derived), \(AC \\rightarrow BC\) and \(AC \\rightarrow AD\) gives \(AC \\rightarrow BCD\)? Wait, BC and AD union is ABCD? Actually BC ∪ AD = {A,B,C,D}? AD gives A and D; BC gives B and C; together A,B,C,D. So \(AC \\rightarrow ABCD\).<br>5. Then by decomposition, \(AC \\rightarrow BD\) holds (since BD subset of ABCD).<br>6. Option A: \(A \\rightarrow D\) is not implied.<br>7. Option B: \(C \\rightarrow B\) not implied.<br>8. Option C: \(AC \\rightarrow BD\) is implied as shown.<br>9. Option D: reverse not implied.<br><br><strong>Why the correct answer is correct:</strong><br>Using augmentation and union, we can derive \(AC \\rightarrow BD\).<br><br><strong>Why other options are incorrect:</strong><br>They cannot be derived from the given FDs.<br><br><strong>How to approach this type of problem:</strong><br>Apply Armstrong’s axioms systematically. Augmentation with common attributes helps.<br><br><strong>Concept used:</strong> Deriving FDs using Armstrong’s axioms.<br><strong>Points to remember:</strong><br>* You can augment both FDs with the same set.<br>* Union then decomposition yields combined FDs.<br><strong>Key takeaway:</strong> Augmenting with common attributes allows combining FDs."
+            },
+            {
+                "id": 38,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "What is the role of functional dependencies in database design?",
+                "options": [
+                    "They define the primary key of a relation.",
+                    "They capture semantic constraints and guide normalisation.",
+                    "They are used only for query optimisation.",
+                    "They determine the storage engine to use."
+                ],
+                "correct": 1,
+                "explanation": "Functional dependencies encode business rules and are fundamental to the normalisation process.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. The lecture introduces FDs as a formal way to capture real‑world constraints.<br>2. These constraints are then used to normalise relations (decompose to remove redundancy).<br>3. Option A is too narrow; FDs can involve non‑key attributes.<br>4. Option B correctly describes their role.<br>5. Option C: they can be used for optimisation, but that is not their primary design role.<br>6. Option D is unrelated.<br><br><strong>Why the correct answer is correct:</strong><br>FDs are the basis for normalisation theory.<br><br><strong>Why other options are incorrect:</strong><br>Options A, C, D are either incomplete or incorrect.<br><br><strong>How to approach this type of problem:</strong><br>Remember that FDs are constraints that drive the design process, not just optimisation.<br><br><strong>Concept used:</strong> Purpose of functional dependencies.<br><strong>Points to remember:</strong><br>* FDs express business rules.<br>* They are used to test for normal forms.<br><strong>Key takeaway:</strong> FDs are semantic constraints for good design."
+            },
+            {
+                "id": 39,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following scenarios would lead to an update anomaly?",
+                "options": [
+                    "A department’s budget is stored with every instructor of that department, and the budget changes but only some rows are updated.",
+                    "A new department cannot be added because no instructor exists.",
+                    "Deleting the last instructor of a department removes the department information.",
+                    "A student’s address is stored only once in a separate table."
+                ],
+                "correct": 0,
+                "explanation": "Update anomaly occurs when redundant data is not updated consistently. The scenario describes partial update of redundant budget values.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Update anomaly: inconsistency due to multiple copies of the same fact.<br>2. Option A: budget stored redundantly; updating only some copies causes inconsistency → update anomaly.<br>3. Option B: insertion anomaly.<br>4. Option C: deletion anomaly.<br>5. Option D: no anomaly (proper design).<br><br><strong>Why the correct answer is correct:</strong><br>It matches the definition of update anomaly from the lecture.<br><br><strong>Why other options are incorrect:</strong><br>B and C are different anomalies; D is normal.<br><br><strong>How to approach this type of problem:</strong><br>Identify the operation (update) and check if redundancy causes partial updates.<br><br><strong>Concept used:</strong> Update anomaly.<br><strong>Points to remember:</strong><br>* Update anomaly arises from redundant storage.<br>* The fix is to store each fact once.<br><strong>Key takeaway:</strong> Update anomaly = partial update of redundant copies."
+            },
+            {
+                "id": 40,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider a relation that stores student information along with course enrollment. A student may enroll in multiple courses. To bring this relation to 1NF, what should be done?",
+                "options": [
+                    "Create a separate table for enrollments with student ID and course ID.",
+                    "Store the course IDs as a comma‑separated string in the student table.",
+                    "Create multiple columns Course1, Course2, Course3 in the student table.",
+                    "Leave it as is; it is already in 1NF."
+                ],
+                "correct": 0,
+                "explanation": "The multi‑valued attribute (courses) should be moved to a separate table, with the student ID as foreign key.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. The student relation has a repeating group (multiple courses).<br>2. To achieve 1NF, we must remove the repeating group.<br>3. Standard solution: create a new table Enrollment(StudentID, CourseID).<br>4. Option A describes this.<br>5. Option B (comma‑separated) violates atomicity.<br>6. Option C (multiple columns) does not handle variable number of enrollments and is not 1NF.<br>7. Option D is false.<br><br><strong>Why the correct answer is correct:</strong><br>It follows the decomposition method taught in the lecture.<br><br><strong>Why other options are incorrect:</strong><br>B and C are incorrect 1NF representations; D is false.<br><br><strong>How to approach this type of problem:</strong><br>For a multi‑valued attribute, always decompose into a separate table.<br><br><strong>Concept used:</strong> Converting to 1NF.<br><strong>Points to remember:</strong><br>* The new table’s key includes the original key and the multi‑valued attribute.<br>* This eliminates redundancy and anomalies.<br><strong>Key takeaway:</strong> Separate table for multi‑valued attributes is the only correct 1NF solution."
+            },
+            {
+                "id": 41,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following is a correct description of a candidate key?",
+                "options": [
+                    "A minimal set of attributes that uniquely identifies a tuple.",
+                    "Any set of attributes that uniquely identifies a tuple.",
+                    "A set of attributes that is a superkey and has at least two attributes.",
+                    "The primary key of the relation."
+                ],
+                "correct": 0,
+                "explanation": "A candidate key is a minimal superkey, i.e., no proper subset is a superkey.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Definition from lecture: candidate key is a superkey that is minimal.<br>2. Option A matches: minimal set that uniquely identifies a tuple.<br>3. Option B describes a superkey (not necessarily minimal).<br>4. Option C is false; candidate keys can be single‑attribute.<br>5. Option D: the primary key is one chosen candidate key, but not all candidate keys are primary keys.<br><br><strong>Why the correct answer is correct:</strong><br>It captures the minimality condition.<br><br><strong>Why other options are incorrect:</strong><br>B is too broad; C imposes unnecessary cardinality; D confuses candidate key with primary key.<br><br><strong>How to approach this type of problem:</strong><br>Remember: candidate key = minimal superkey.<br><br><strong>Concept used:</strong> Candidate key definition.<br><strong>Points to remember:</strong><br>* Every candidate key is a superkey.<br>* No proper subset of a candidate key is a superkey.<br><strong>Key takeaway:</strong> Candidate keys are the smallest superkeys."
+            },
+            {
+                "id": 42,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Suppose we have a relation \(R(A,B,C,D)\) with functional dependencies \(A \\rightarrow B\) and \(B \\rightarrow C\). What is the closure of \(\{A\}\)?",
+                "options": [
+                    "\(\{A,B\}\)",
+                    "\(\{A,B,C\}\)",
+                    "\(\{A,B,C,D\}\)",
+                    "\(\{A\}\)"
+                ],
+                "correct": 1,
+                "explanation": "Starting with {A}. Using A→B, add B. Using B→C, add C. No FD determines D, so closure is {A,B,C}.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Initialize closure = {A}.<br>2. Check FDs: A→B, left side {A} ⊆ closure, so add B → closure = {A,B}.<br>3. Now B→C, left side {B} ⊆ closure, so add C → closure = {A,B,C}.<br>4. No FD gives D, so stop. Closure = {A,B,C}.<br>5. Option B matches.<br><br><strong>Why the correct answer is correct:</strong><br>The closure algorithm correctly adds attributes determined transitively.<br><br><strong>Why other options are incorrect:</strong><br>Option A missed C; Option C incorrectly includes D; Option D is just the starting set.<br><br><strong>How to approach this type of problem:</strong><br>Apply closure algorithm: start with given set, repeatedly add attributes from FDs whose left side is already in the closure.<br><br><strong>Concept used:</strong> Attribute closure.<br><strong>Points to remember:</strong><br>* The closure includes the starting set.<br>* Continue until no more attributes can be added.<br><strong>Key takeaway:</strong> Closure of a set is all attributes it functionally determines."
+            },
+            {
+                "id": 43,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following is an example of a trivial functional dependency?",
+                "options": [
+                    "\(A \\rightarrow B\)",
+                    "\(AB \\rightarrow B\)",
+                    "\(AB \\rightarrow C\)",
+                    "\(A \\rightarrow BC\)"
+                ],
+                "correct": 1,
+                "explanation": "\(AB \\rightarrow B\) is trivial because B ⊆ {A,B}.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Trivial FD: RHS ⊆ LHS.<br>2. Option A: {B} ⊈ {A} → non‑trivial.<br>3. Option B: {B} ⊆ {A,B} → trivial.<br>4. Option C: {C} ⊈ {A,B} → non‑trivial.<br>5. Option D: {B,C} ⊈ {A} → non‑trivial.<br><br><strong>Why the correct answer is correct:</strong><br>The right‑hand side is a subset of the left‑hand side.<br><br><strong>Why other options are incorrect:</strong><br>They do not satisfy the subset condition.<br><br><strong>How to approach this type of problem:</strong><br>Check if every attribute on the right appears on the left.<br><br><strong>Concept used:</strong> Trivial functional dependency.<br><strong>Points to remember:</strong><br>* Trivial FDs are always true.<br>* They do not provide any constraint.<br><strong>Key takeaway:</strong> Trivial FD: RHS ⊆ LHS."
+            },
+            {
+                "id": 44,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider a relation that is not in 1NF because it contains a repeating group. How can it be brought into 1NF?",
+                "options": [
+                    "By removing the repeating group and storing only the first value.",
+                    "By creating a separate relation for the repeating group, linked by a foreign key.",
+                    "By converting the repeating group into a composite attribute.",
+                    "By adding a new column to indicate the number of repetitions."
+                ],
+                "correct": 1,
+                "explanation": "The standard relational solution is to decompose the relation: one relation for the original entity, another for the repeating group, with the original key as foreign key.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. 1NF prohibits repeating groups.<br>2. The correct way to handle a repeating group is to create a separate table where each repetition becomes a separate tuple.<br>3. Option A loses data.<br>4. Option B is correct.<br>5. Option C does not solve the problem; composite attributes still violate atomicity.<br>6. Option D does not achieve 1NF.<br><br><strong>Why the correct answer is correct:</strong><br>It follows the decomposition method taught in the lecture.<br><br><strong>Why other options are incorrect:</strong><br>A loses data; C and D do not achieve 1NF.<br><br><strong>How to approach this type of problem:</strong><br>Always move repeating groups to a separate table.<br><br><strong>Concept used:</strong> Converting to 1NF.<br><strong>Points to remember:</strong><br>* The new table’s primary key includes the original key and the repeating attribute.<br>* This eliminates redundancy and anomalies.<br><strong>Key takeaway:</strong> Separate table for repeating groups."
+            },
+            {
+                "id": 45,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following is a sufficient condition for a binary decomposition \(R_1, R_2\) of \(R\) to be lossless?",
+                "options": [
+                    "\(R_1 \\cap R_2\) is a candidate key for \(R_1\) or \(R_2\).",
+                    "\(R_1 \\cap R_2 = \\emptyset\).",
+                    "\(R_1 \\cup R_2 = R\).",
+                    "\(R_1 \\subseteq R_2\) or \(R_2 \\subseteq R_1\)."
+                ],
+                "correct": 0,
+                "explanation": "If the common attributes form a candidate key (or superkey) in at least one of the decomposed relations, the decomposition is lossless.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Lossless join condition: \((R_1 \\cap R_2) \\rightarrow R_1\) or \((R_1 \\cap R_2) \\rightarrow R_2\).<br>2. If the intersection is a candidate key for \(R_1\), then it determines all attributes of \(R_1\), satisfying the condition.<br>3. Option A states this.<br>4. Option B (empty intersection) leads to Cartesian product → lossy.<br>5. Option C (union covers R) is necessary but not sufficient.<br>6. Option D is not generally true nor sufficient.<br><br><strong>Why the correct answer is correct:</strong><br>A candidate key is a superkey, so the condition holds.<br><br><strong>Why other options are incorrect:</strong><br>B, C, D do not guarantee losslessness.<br><br><strong>How to approach this type of problem:</strong><br>Remember the key‑based condition: intersection must be a superkey in one of the two.<br><br><strong>Concept used:</strong> Lossless join condition.<br><strong>Points to remember:</strong><br>* A candidate key is a special case of a superkey.<br>* The condition is sufficient but not necessary (if intersection is a superkey, it's lossless; but lossless can also happen in other ways? Actually the condition is both necessary and sufficient for binary decompositions under certain assumptions. In practice, it's the standard test.)<br><strong>Key takeaway:</strong> Intersection → superkey in one of the two ensures lossless join."
+            },
+            {
+                "id": 46,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider the relation \(R(A,B,C)\) with instance: \((1,2,3), (1,3,4), (2,2,5)\). Which of the following functional dependencies holds in this instance?",
+                "options": [
+                    "\(A \\rightarrow B\)",
+                    "\(B \\rightarrow C\)",
+                    "\(C \\rightarrow A\)",
+                    "\(A \\rightarrow C\)"
+                ],
+                "correct": 2,
+                "explanation": "For \(C \\rightarrow A\), each C value appears only once, so there is no counterexample; thus it holds vacuously in this instance.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Check \(A \\rightarrow B\): A=1 has B=2 and B=3 → violation.<br>2. Check \(B \\rightarrow C\): B=2 has C=3 and C=5 → violation.<br>3. Check \(C \\rightarrow A\): C=3 appears only once; C=4 once; C=5 once. No two tuples share same C, so the FD holds (vacuously true).<br>4. Check \(A \\rightarrow C\): A=1 has C=3 and C=4 → violation.<br>5. Only \(C \\rightarrow A\) holds in this instance.<br><br><strong>Why the correct answer is correct:</strong><br>No counterexample exists for \(C \\rightarrow A\) in the given data.<br><br><strong>Why other options are incorrect:</strong><br>They have clear counterexamples.<br><br><strong>How to approach this type of problem:</strong><br>For each FD, check if any two tuples have same LHS but different RHS. If none, the FD holds.<br><br><strong>Concept used:</strong> Testing FDs on a relation instance.<br><strong>Points to remember:</strong><br>* An FD holds in an instance if no counterexample exists.<br>* Vacuously true if no two tuples share LHS values.<br><strong>Key takeaway:</strong> Instance satisfaction is about absence of counterexamples."
+            },
+            {
+                "id": 47,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following statements about atomic domains is FALSE?",
+                "options": [
+                    "A domain is atomic if its elements are indivisible.",
+                    "An integer domain is atomic.",
+                    "A set of phone numbers stored as a JSON array in a single column is atomic.",
+                    "A string domain is atomic if the DBMS does not interpret its substrings."
+                ],
+                "correct": 2,
+                "explanation": "A set or array is not atomic because it contains multiple values; the DBMS can see the structure.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. Atomic domain: indivisible.<br>2. Option A is true.<br>3. Option B: integers are atomic.<br>4. Option C: a JSON array contains multiple values, so it is not atomic; the DBMS can access individual elements, violating 1NF.<br>5. Option D: strings are atomic if used as whole.<br><br><strong>Why the correct answer is correct:</strong><br>A JSON array is a collection, not a single atomic value.<br><br><strong>Why other options are incorrect:</strong><br>Options A, B, D are true statements.<br><br><strong>How to approach this type of problem:</strong><br>Any attribute that can hold multiple distinct values (array, set, list) is non‑atomic.<br><br><strong>Concept used:</strong> Atomic domain.<br><strong>Points to remember:</strong><br>* Atomicity is about indivisibility from the DBMS perspective.<br>* Even complex types like JSON can be non‑atomic if they expose structure.<br><strong>Key takeaway:</strong> Multi‑valued attributes are not atomic."
+            },
+            {
+                "id": 48,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "What is the main purpose of using Armstrong’s axioms?",
+                "options": [
+                    "To compute the closure of a set of attributes.",
+                    "To derive all functional dependencies implied by a given set.",
+                    "To check if a relation is in BCNF.",
+                    "To optimise SQL queries."
+                ],
+                "correct": 1,
+                "explanation": "Armstrong’s axioms are a set of inference rules that are sound and complete for deriving all FDs in the closure of a given set.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. The lecture introduces Armstrong’s axioms (reflexivity, augmentation, transitivity) as rules to derive new FDs.<br>2. Their purpose is to compute the closure \(F^+\) of a set of FDs.<br>3. Option A: attribute closure is a separate concept, though related.<br>4. Option B correctly states the purpose.<br>5. Option C: BCNF checking uses FDs but not directly the axioms.<br>6. Option D is unrelated.<br><br><strong>Why the correct answer is correct:</strong><br>Armstrong’s axioms are used to infer all FDs logically implied by a set.<br><br><strong>Why other options are incorrect:</strong><br>A is a different algorithm; C and D are not the primary purpose.<br><br><strong>How to approach this type of problem:</strong><br>Remember: Armstrong’s axioms = inference rules for FDs.<br><br><strong>Concept used:</strong> Armstrong’s axioms.<br><strong>Points to remember:</strong><br>* They are sound and complete.<br>* They are used to compute \(F^+\).<br><strong>Key takeaway:</strong> Armstrong’s axioms derive all implied FDs."
+            },
+            {
+                "id": 49,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Consider a relation that is in 1NF. Which of the following is still possible?",
+                "options": [
+                    "A repeating group",
+                    "A composite attribute that is not split",
+                    "Partial dependencies",
+                    "A multi‑valued attribute"
+                ],
+                "correct": 2,
+                "explanation": "1NF does not address partial dependencies; they are handled by 2NF.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. 1NF only requires atomic domains and no repeating groups.<br>2. Repeating groups (A) are prohibited by 1NF.<br>3. Composite attributes that are not split (B) violate atomicity, so not allowed.<br>4. Partial dependencies (C) are allowed in 1NF; they are eliminated in 2NF.<br>5. Multi‑valued attributes (D) are prohibited by 1NF.<br><br><strong>Why the correct answer is correct:</strong><br>Partial dependencies are about functional dependencies, not about atomicity.<br><br><strong>Why other options are incorrect:</strong><br>A, B, D violate 1NF.<br><br><strong>How to approach this type of problem:</strong><br>Know what 1NF allows and what it doesn't. It only cares about attribute structure, not dependencies.<br><br><strong>Concept used:</strong> First Normal Form properties.<br><strong>Points to remember:</strong><br>* 1NF does not eliminate partial or transitive dependencies.<br>* Higher normal forms address those.<br><strong>Key takeaway:</strong> 1NF permits partial dependencies."
+            },
+            {
+                "id": 50,
+                "type": "mcq",
+                "variant": "standard",
+                "difficulty": "easy",
+                "points": 1,
+                "text": "Which of the following best describes a lossless join decomposition?",
+                "options": [
+                    "A decomposition where the natural join of the projections yields exactly the original relation for all instances.",
+                    "A decomposition where the union of the decomposed relations equals the original relation.",
+                    "A decomposition where no information is lost during the join operation.",
+                    "A decomposition that preserves all functional dependencies."
+                ],
+                "correct": 0,
+                "explanation": "Lossless join decomposition means that for every instance, the natural join of the projections reconstructs the original relation exactly.",
+                "detailed": "<strong>Step-by-step solution:</strong><br>1. The lecture defines lossless join decomposition precisely as the ability to reconstruct the original relation by natural join.<br>2. Option A matches this definition.<br>3. Option B is necessary but not sufficient (union coverage).<br>4. Option C is vague; “no information lost” is the idea, but the precise definition is given in A.<br>5. Option D is dependency preservation, a different property.<br><br><strong>Why the correct answer is correct:</strong><br>It is the exact definition from the lecture.<br><br><strong>Why other options are incorrect:</strong><br>B is incomplete; C is imprecise; D is a different concept.<br><br><strong>How to approach this type of problem:</strong><br>Memorise the exact wording: natural join of projections = original relation.<br><br><strong>Concept used:</strong> Lossless join decomposition.<br><strong>Points to remember:</strong><br>* Must hold for all instances, not just one.<br>* Union coverage and intersection‑key condition are used to test it.<br><strong>Key takeaway:</strong> Lossless join = exact reconstruction via natural join."
+            }
+        ];
+    </script>
+</body>
+
+</html>

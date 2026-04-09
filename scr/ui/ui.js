@@ -242,6 +242,66 @@
             return false;
         }
 
+        function normalizeQuestionType(typeValue) {
+            const rawType = String(typeValue || '').trim().toLowerCase();
+            if (!rawType) return rawType;
+
+            const aliases = {
+                checkbox: 'msq',
+                checkboxes: 'msq',
+                multiselect: 'msq',
+                'multi-select': 'msq',
+                multiple: 'msq',
+                single: 'mcq',
+                singlechoice: 'mcq',
+                'single-choice': 'mcq',
+                tf: 'truefalse',
+                'true/false': 'truefalse',
+                'true-false': 'truefalse'
+            };
+
+            return aliases[rawType] || rawType;
+        }
+
+        function toIntegerArray(value) {
+            if (Array.isArray(value)) {
+                return value.map(v => Number(v)).filter(Number.isInteger);
+            }
+            if (typeof value === 'number') {
+                return Number.isInteger(value) ? [value] : [];
+            }
+            if (typeof value === 'string') {
+                const tokens = value.split(/[\s,;|]+/).filter(Boolean);
+                return tokens.map(token => Number(token)).filter(Number.isInteger);
+            }
+            return [];
+        }
+
+        function normalizeQuestionShape(question) {
+            if (!question || typeof question !== 'object') {
+                return question;
+            }
+
+            const type = normalizeQuestionType(question.type);
+            const normalized = {
+                ...question,
+                type
+            };
+
+            if (type === 'msq') {
+                const fromCorrectIndices = toIntegerArray(question.correctIndices);
+                const fromCorrect = toIntegerArray(question.correct);
+                const optionCount = Array.isArray(question.options) ? question.options.length : 0;
+
+                normalized.correctIndices = [...new Set(
+                    (fromCorrectIndices.length ? fromCorrectIndices : fromCorrect)
+                        .filter(index => index >= 0 && (optionCount === 0 || index < optionCount))
+                )];
+            }
+
+            return normalized;
+        }
+
         function normalizeTrueFalseQuestion(question) {
             if (!question || String(question.type || '').toLowerCase() !== 'truefalse') {
                 return question;
@@ -564,6 +624,7 @@
 
         const normalizedQuestionsData = window.questionsData
             .map(normalizeQuestionMath)
+            .map(normalizeQuestionShape)
             .map(normalizeTrueFalseQuestion);
 
         // Build HTML

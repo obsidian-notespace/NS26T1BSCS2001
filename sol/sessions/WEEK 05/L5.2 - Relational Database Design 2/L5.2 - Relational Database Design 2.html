@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>DBMS — Week 05 — L5.2: Relational Database Design/2 — Study Notes</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}]})">
+        </script>
+    <link rel="stylesheet" href="../../../../scr/ui/ui.css" />
+</head>
+
+<body>
+    <div class="assignment-container">
+        <div class="gcb-assessment-title">WEEK 05 — L5.2: Relational Database Design/2 — Study Notes</div>
+        <div class="assessment-top-info">
+            <strong>Week:</strong> 05 |
+            <strong>Lecture:</strong> L5.2 |
+            <strong>Topics:</strong> Functional Dependencies, Trivial FDs, Armstrong’s Axioms<br />
+            <strong>Prerequisites:</strong> Understanding of keys, superkeys, candidate keys.<br />
+            <strong>Learning Outcomes:</strong> Define functional dependencies, distinguish trivial from non‑trivial,
+            apply Armstrong’s axioms to derive new FDs, understand soundness and completeness.
+        </div>
+
+        <!-- Concept 5: Functional Dependencies -->
+        <div class="concept-card">
+            <h2>5. Functional Dependencies (FDs)</h2>
+            <h3>Definition</h3>
+            <p>A <strong>functional dependency</strong> is a constraint between two sets of attributes in a relation. It
+                is denoted as \( \alpha \rightarrow \beta \), where \( \alpha \) and \( \beta \) are subsets of the
+                relation’s attributes. The constraint means: for any two tuples \( t_1 \) and \( t_2 \) in any valid
+                instance of the relation, if \( t_1[\alpha] = t_2[\alpha] \), then \( t_1[\beta] = t_2[\beta] \). In
+                other words, the value of \( \alpha \) uniquely determines the value of \( \beta \).</p>
+
+            <h3>Explanation</h3>
+            <p>FDs are a formal way to capture real‑world business rules. For example, in a university database, the
+                rule “each department has a unique building” is expressed as \( \text{dept\_name} \rightarrow
+                \text{building} \). This must hold for all possible data, not just the current instance.</p>
+            <p>FDs generalize the concept of keys: a superkey \( K \) satisfies \( K \rightarrow \text{all attributes}
+                \). A candidate key is a minimal superkey.</p>
+            <p>It is important to note that FDs are <strong>not</strong> derived from data; they are derived from the
+                semantics (meaning) of the real world. Even if a given instance accidentally satisfies \( \text{name}
+                \rightarrow \text{ID} \) (e.g., all names are unique), we cannot conclude it is a valid FD because two
+                people can have the same name in reality.</p>
+            <p>FDs are used in normalization to identify redundancy and guide decomposition.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Think of an FD as a mathematical function: if you know the input (\( \alpha \)), you can compute the
+                output (\( \beta \)) deterministically. For instance, knowing a person’s Social Security number (SSN)
+                determines their name, address, etc. That’s \( \text{SSN} \rightarrow \text{name} \).</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Functional Dependency (FD)</strong>: \( \alpha \rightarrow \beta \) means \( \alpha \)
+                    uniquely determines \( \beta \).</li>
+                <li><strong>Trivial FD</strong>: An FD where \( \beta \subseteq \alpha \) (e.g., \( AB \rightarrow A
+                    \)). Always true.</li>
+                <li><strong>Non‑trivial FD</strong>: \( \beta \not\subseteq \alpha \) (e.g., \( A \rightarrow B \)).
+                </li>
+                <li><strong>Closure of FD set (\( F^+ \))</strong>: All FDs that can be derived from \( F \) using
+                    Armstrong’s axioms.</li>
+            </ul>
+
+            <h3>Formulas / Examples</h3>
+            <p><strong>Example 1:</strong> In the relation <code>instructor(ID, name, dept_name, salary)</code>, we may
+                have \( ID \rightarrow name, dept\_name, salary \) because ID is a candidate key. Also, \( dept\_name
+                \rightarrow building \) is an FD if each department has a single building (but building is not in this
+                relation; it would be in a separate department relation).</p>
+            <p><strong>Example 2:</strong> Consider the instance:</p>
+            <table border="1">
+                <tr>
+                    <th>A</th>
+                    <th>B</th>
+                </tr>
+                <tr>
+                    <td>1</td>
+                    <td>4</td>
+                </tr>
+                <tr>
+                    <td>1</td>
+                    <td>5</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>6</td>
+                </tr>
+            </table>
+            <p>Here \( A \rightarrow B \) does NOT hold because A=1 gives two different B values (4 and 5). However, \(
+                B \rightarrow A \) might hold if 4→1,5→1,6→2 (which it does in this instance). But we cannot declare it
+                as a true FD unless it holds for all possible future instances.</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: “If an FD holds in the current data, it is a valid FD.”</strong> (Correction:
+                    FDs are semantic rules that must hold for all possible instances, not just the current snapshot.)
+                </li>
+                <li><strong>Misconception: “FDs are the same as keys.”</strong> (Correction: Keys are a special case
+                    where the right side is all attributes, but FDs can be any subset.)</li>
+                <li><strong>Misconception: “Trivial FDs are useless.”</strong> (Correction: They are important in
+                    inference algorithms and as base cases.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li>An FD with an empty left side: \( \emptyset \rightarrow \beta \) means that all tuples have the same
+                    value for \( \beta \) (a constant).</li>
+                <li>An FD with an empty right side is trivial and meaningless; not used.</li>
+            </ul>
+
+            <h3>Real‑world Application</h3>
+            <p>FDs are used by database designers to enforce business rules. For example, in a flight booking system, \(
+                \text{flight\_number} \rightarrow \text{airline} \) ensures that a flight number always belongs to the
+                same airline.</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • FDs are semantic constraints, not data‑derived.<br />
+                • \( \alpha \rightarrow \beta \) means α uniquely determines β.<br />
+                • Trivial FDs have β ⊆ α.<br />
+                • FDs generalize the concept of keys.<br />
+                • They are the foundation of normalization theory.
+            </p>
+        </div>
+
+        <!-- Concept 6: Armstrong’s Axioms -->
+        <div class="concept-card">
+            <h2>6. Armstrong’s Axioms</h2>
+            <h3>Definition</h3>
+            <p><strong>Armstrong’s axioms</strong> are a set of three inference rules (reflexivity, augmentation,
+                transitivity) that are sound and complete for deriving all functional dependencies implied by a given
+                set \( F \).</p>
+
+            <h3>Explanation</h3>
+            <p>Given a set of FDs \( F \), we often need to know what other FDs must also hold. Armstrong’s axioms
+                provide a mechanical way to derive them.</p>
+            <ul>
+                <li><strong>Reflexivity:</strong> If \( \beta \subseteq \alpha \), then \( \alpha \rightarrow \beta \).
+                    (Trivial dependencies.)</li>
+                <li><strong>Augmentation:</strong> If \( \alpha \rightarrow \beta \), then \( \alpha\gamma \rightarrow
+                    \beta\gamma \) for any set of attributes \( \gamma \). (Adding the same attributes to both sides
+                    preserves the dependency.)</li>
+                <li><strong>Transitivity:</strong> If \( \alpha \rightarrow \beta \) and \( \beta \rightarrow \gamma \),
+                    then \( \alpha \rightarrow \gamma \).</li>
+            </ul>
+            <p><strong>Soundness</strong> means that any FD derived using these axioms is indeed implied by \( F \).
+                <strong>Completeness</strong> means that any FD implied by \( F \) can be derived using these axioms.
+                Therefore, \( F^+ \) (the closure of F) is exactly the set of FDs obtainable by repeatedly applying
+                these three rules.
+            </p>
+            <p>From these three, we can derive additional rules such as Union, Decomposition, and Pseudo‑transitivity,
+                which are convenient shortcuts.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Think of Armstrong’s axioms as the algebra of functional dependencies. Just as you can manipulate
+                equations (e.g., if a=b and b=c then a=c), you can manipulate FDs. Reflexivity says “obvious”
+                dependencies (like \( AB \rightarrow A \)) are always true. Augmentation says you can add the same
+                “junk” to both sides. Transitivity chains dependencies.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Sound</strong>: Every derived FD is valid.</li>
+                <li><strong>Complete</strong>: Every valid FD can be derived.</li>
+                <li><strong>Closure of F (\( F^+ \))</strong>: The set of all FDs derivable from F using Armstrong’s
+                    axioms.</li>
+            </ul>
+
+            <h3>Formulas / Examples</h3>
+            <p><strong>Example:</strong> Given \( F = \{ A \rightarrow B, B \rightarrow C \} \).</p>
+            <ul>
+                <li>By transitivity: \( A \rightarrow C \).</li>
+                <li>By augmentation: \( A \rightarrow B \) gives \( A A \rightarrow A B \) i.e., \( A \rightarrow AB \)
+                    (reflexivity also applies).</li>
+                <li>Also \( B \rightarrow C \) augmented with \( D \): \( BD \rightarrow CD \).</li>
+            </ul>
+            <p>Thus \( F^+ \) includes at least \( A \rightarrow C \) and all trivial FDs.</p>
+
+            <h3>Derived Rules</h3>
+            <ul>
+                <li><strong>Union:</strong> If \( \alpha \rightarrow \beta \) and \( \alpha \rightarrow \gamma \), then
+                    \( \alpha \rightarrow \beta\gamma \).</li>
+                <li><strong>Decomposition:</strong> If \( \alpha \rightarrow \beta\gamma \), then \( \alpha \rightarrow
+                    \beta \) and \( \alpha \rightarrow \gamma \).</li>
+                <li><strong>Pseudo‑transitivity:</strong> If \( \alpha \rightarrow \beta \) and \( \beta\gamma
+                    \rightarrow \delta \), then \( \alpha\gamma \rightarrow \delta \).</li>
+            </ul>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: “Augmentation can only be used with new attributes.”</strong> (Correction: \(
+                    \gamma \) can be any set, including attributes already present.)</li>
+                <li><strong>Misconception: “Transitivity requires the middle set to be exactly the same.”</strong>
+                    (Correction: It requires \( \beta \rightarrow \gamma \), not necessarily \( \beta \) equals the
+                    right side of the first FD exactly; subsets are fine.)</li>
+                <li><strong>Misconception: “Derived rules are axioms.”</strong> (Correction: They are theorems that
+                    follow from the three axioms.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li>If \( F \) is empty, \( F^+ \) contains only trivial FDs (reflexivity).</li>
+                <li>Applying augmentation with \( \gamma \) that is already in \( \alpha \) or \( \beta \) may produce
+                    redundant but still valid FDs.</li>
+            </ul>
+
+            <h3>Real‑world Application</h3>
+            <p>Database design tools use Armstrong’s axioms to compute the closure of a set of FDs, which is used to
+                find candidate keys and check normal forms.</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • Three axioms: Reflexivity, Augmentation, Transitivity.<br />
+                • Sound and complete: they derive all implied FDs and nothing else.<br />
+                • Derived rules (Union, Decomposition, Pseudo‑transitivity) are useful shortcuts.<br />
+                • The closure \( F^+ \) is the set of all FDs that hold.<br />
+                • These axioms form the basis for algorithmic normalization.
+            </p>
+        </div>
+
+        <!-- Summary Table -->
+        <div class="concept-card">
+            <h2>Lecture Summary</h2>
+            <table border="1" cellpadding="8" style="border-collapse: collapse; width: 100%;">
+                <tr>
+                    <th>Concept</th>
+                    <th>Key Definition</th>
+                    <th>Rule / Notation</th>
+                    <th>Common Mistake</th>
+                </tr>
+                <tr>
+                    <td>Functional Dependency</td>
+                    <td>α → β: α uniquely determines β</td>
+                    <td>Must hold for all instances</td>
+                    <td>Assuming data implies FD</td>
+                </tr>
+                <tr>
+                    <td>Trivial FD</td>
+                    <td>β ⊆ α</td>
+                    <td>Always true</td>
+                    <td>Thinking trivial FDs are useless</td>
+                </tr>
+                <tr>
+                    <td>Reflexivity</td>
+                    <td>If β ⊆ α then α → β</td>
+                    <td>Generates trivial FDs</td>
+                    <td>Confusing with augmentation</td>
+                </tr>
+                <tr>
+                    <td>Augmentation</td>
+                    <td>If α → β then αγ → βγ</td>
+                    <td>Add same attributes both sides</td>
+                    <td>Thinking γ must be new</td>
+                </tr>
+                <tr>
+                    <td>Transitivity</td>
+                    <td>If α → β and β → γ then α → γ</td>
+                    <td>Chaining FDs</td>
+                    <td>Requiring exact match of β</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="concept-card">
+            <h2>Quick Revision Checklist</h2>
+            <ul>
+                <li>☐ Define functional dependency and give an example.</li>
+                <li>☐ Differentiate trivial from non‑trivial FD.</li>
+                <li>☐ State Armstrong’s three axioms.</li>
+                <li>☐ Explain soundness and completeness.</li>
+                <li>☐ Derive Union rule from the axioms.</li>
+                <li>☐ Compute simple closure \( F^+ \) given a small F.</li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>

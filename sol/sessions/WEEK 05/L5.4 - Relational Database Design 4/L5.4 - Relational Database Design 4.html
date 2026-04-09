@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>DBMS — Week 05 — L5.4: Relational Database Design/4 — Study Notes</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}]})">
+        </script>
+    <link rel="stylesheet" href="../../../../scr/ui/ui.css" />
+</head>
+
+<body>
+    <div class="assignment-container">
+        <div class="gcb-assessment-title">WEEK 05 — L5.4: Relational Database Design/4 — Study Notes</div>
+        <div class="assessment-top-info">
+            <strong>Week:</strong> 05 |
+            <strong>Lecture:</strong> L5.4 |
+            <strong>Topics:</strong> Extraneous Attributes, Canonical Cover, Equivalence of FD Sets, Tutorial 5.4: Super
+            Keys and Candidate Keys<br />
+            <strong>Prerequisites:</strong> Functional dependencies, attribute closure, Armstrong’s axioms.<br />
+            <strong>Learning Outcomes:</strong> Identify extraneous attributes, compute canonical cover, test
+            equivalence of FD sets, and systematically find all candidate keys using closure.
+        </div>
+
+        <!-- Concept 14: Extraneous Attributes -->
+        <div class="concept-card">
+            <h2>14. Extraneous Attributes</h2>
+            <h3>Definition</h3>
+            <p>An attribute in a functional dependency is <strong>extraneous</strong> if it can be removed from the
+                left‑hand side or the right‑hand side without changing the closure \( F^+ \) of the set of FDs. Removing
+                an extraneous attribute yields a simpler, equivalent set of FDs.</p>
+
+            <h3>Explanation</h3>
+            <p>There are two cases:</p>
+            <ul>
+                <li><strong>Left‑side extraneous:</strong> Given \( \alpha \rightarrow \beta \), an attribute \( A \in
+                    \alpha \) is extraneous if \( (\alpha - \{A\}) \rightarrow \beta \) can be inferred from \( F \). In
+                    other words, the FD still holds without \( A \) on the left.</li>
+                <li><strong>Right‑side extraneous:</strong> Given \( \alpha \rightarrow \beta \), an attribute \( B \in
+                    \beta \) is extraneous if \( \alpha \rightarrow (\beta - \{B\}) \) can be inferred from \( F \).
+                </li>
+            </ul>
+            <p>To test left‑side extraneous, compute \( (\alpha - \{A\})^+ \) using \( F \). If it contains \( \beta \),
+                then \( A \) is extraneous.</p>
+            <p>To test right‑side extraneous, compute \( \alpha^+ \) using \( F' = (F - \{\alpha \rightarrow \beta\})
+                \cup \{\alpha \rightarrow (\beta - \{B\})\} \). If it contains \( B \), then \( B \) is extraneous.</p>
+            <p>Extraneous attributes are removed during the computation of a <strong>canonical cover</strong>.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Think of an FD as a “rule”. If you can prove the rule with a smaller left side, the extra attribute on
+                the left is just “baggage”. Similarly, if the rule still holds when you drop an attribute from the right
+                side, that attribute was not really determined – it might be redundant because of other FDs.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Extraneous attribute</strong>: An attribute that can be removed without changing the
+                    closure.</li>
+                <li><strong>Left‑side extraneous</strong>: The FD is still valid without that attribute on LHS.</li>
+                <li><strong>Right‑side extraneous</strong>: The FD is still valid without that attribute on RHS.</li>
+            </ul>
+
+            <h3>Examples</h3>
+            <p><strong>Example 1 (left‑side extraneous):</strong> \( F = \{ AB \rightarrow C, A \rightarrow C \} \). In
+                \( AB \rightarrow C \), is \( B \) extraneous? Compute \( A^+ \) using F: \( A^+ = \{A, C\} \) (from \(
+                A \rightarrow C \)). Does it contain \( C \)? Yes. So \( A \rightarrow C \) already holds, so \( B \) is
+                extraneous. We can remove \( B \) and keep only \( A \rightarrow C \).</p>
+            <p><strong>Example 2 (right‑side extraneous):</strong> \( F = \{ A \rightarrow BC, A \rightarrow B \} \). In
+                \( A \rightarrow BC \), is \( C \) extraneous? Check if \( A \rightarrow B \) alone implies \( A
+                \rightarrow BC \)? No. But we need to test using the definition: Remove \( C \) from RHS, get \( A
+                \rightarrow B \). Does \( F \) logically imply \( A \rightarrow BC \)? Actually we need to see if \( A
+                \rightarrow C \) is implied. Compute \( A^+ \) with \( F \) (using both FDs): \( A^+ = \{A, B, C\} \).
+                Since \( C \) is in \( A^+ \), \( A \rightarrow C \) holds. Therefore, \( A \rightarrow BC \) can be
+                replaced by \( A \rightarrow B \) and \( A \rightarrow C \) (decomposition), but \( A \rightarrow C \)
+                is already implied? Wait, careful: Right‑side extraneous means that after removing the attribute, the
+                new FD set (with the reduced FD) is equivalent to the original. Here, if we replace \( A \rightarrow BC
+                \) with \( A \rightarrow B \), we lose \( A \rightarrow C \). But if \( A \rightarrow C \) is implied by
+                other FDs (it is, from \( A \rightarrow B \) and ... no, we don't have \( B \rightarrow C \)). So in
+                this example, \( C \) is not extraneous. A correct example: \( F = \{ A \rightarrow B, B \rightarrow C,
+                A \rightarrow BC \} \). In \( A \rightarrow BC \), \( C \) is extraneous because \( A \rightarrow B \)
+                and \( B \rightarrow C \) imply \( A \rightarrow C \). So the set without \( A \rightarrow BC \) is
+                equivalent.</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: “Extraneous means the attribute is never used.”</strong> (Correction: It may
+                    be used but can be removed without loss.)</li>
+                <li><strong>Misconception: “Removing extraneous attributes always yields a smaller FD set.”</strong>
+                    (Correction: It reduces the size of individual FDs; the number of FDs may remain same or decrease
+                    after union.)</li>
+            </ul>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • Extraneous attributes are removed to obtain a minimal (canonical) cover.<br />
+                • Left‑side extraneous: test using \( (\alpha - A)^+ \).<br />
+                • Right‑side extraneous: test using modified set.<br />
+                • Only non‑trivial FDs should be considered.
+            </p>
+        </div>
+
+        <!-- Concept 15: Canonical Cover (Minimal Set) -->
+        <div class="concept-card">
+            <h2>15. Canonical Cover (Minimal Set)</h2>
+            <h3>Definition</h3>
+            <p>A <strong>canonical cover</strong> \( F_c \) for a set of FDs \( F \) is a minimal set of FDs that is
+                equivalent to \( F \) (i.e., \( F_c^+ = F^+ \)) and satisfies:</p>
+            <ol>
+                <li>No FD in \( F_c \) contains an extraneous attribute.</li>
+                <li>The left‑hand sides of all FDs in \( F_c \) are unique (no two FDs have the same left side).</li>
+            </ol>
+
+            <h3>Explanation</h3>
+            <p>Computing a canonical cover is important for normalization algorithms (e.g., 3NF synthesis) and for
+                eliminating redundancy in the specification of constraints. The algorithm:</p>
+            <ol>
+                <li>Use union rule to combine FDs with the same left side (e.g., \( \alpha \rightarrow \beta \) and \(
+                    \alpha \rightarrow \gamma \) become \( \alpha \rightarrow \beta\gamma \)).</li>
+                <li>For each FD \( \alpha \rightarrow \beta \), check each attribute in \( \alpha \) (left) for
+                    extraneousness. Remove if extraneous.</li>
+                <li>For each FD \( \alpha \rightarrow \beta \), check each attribute in \( \beta \) (right) for
+                    extraneousness. Remove if extraneous.</li>
+                <li>If any change was made, repeat from step 1 (because removing attributes may create new opportunities
+                    for union or further reduction).</li>
+            </ol>
+            <p>The result is a canonical cover. Note that canonical covers are not unique; the order of processing can
+                lead to different but equivalent minimal sets.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Think of the canonical cover as the “tightest” set of rules that capture all constraints. No rule has
+                unnecessary parts, and no two rules say the same thing with different left sides – they are combined.
+            </p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Canonical cover</strong>: Minimal, equivalent set of FDs with unique left sides and no
+                    extraneous attributes.</li>
+                <li><strong>Minimal set</strong>: Same as canonical cover.</li>
+            </ul>
+
+            <h3>Example</h3>
+            <p>\( F = \{ A \rightarrow B, B \rightarrow C, A \rightarrow C, AB \rightarrow C \} \).</p>
+            <ol>
+                <li>Combine same left side: \( A \rightarrow BC \) (from \( A \rightarrow B \) and \( A \rightarrow C
+                    \)). So F becomes \( \{ A \rightarrow BC, B \rightarrow C, AB \rightarrow C \} \).</li>
+                <li>Check \( AB \rightarrow C \): Is \( A \) extraneous? Compute \( B^+ \) using F: \( B^+ = \{B, C\}
+                    \). Does it contain \( C \)? Yes. So \( B \rightarrow C \) already holds, thus \( A \) is extraneous
+                    on left. Remove A: \( B \rightarrow C \) already exists, so \( AB \rightarrow C \) is redundant and
+                    can be removed entirely.</li>
+                <li>Now F = \( \{ A \rightarrow BC, B \rightarrow C \} \). Check \( A \rightarrow BC \): Is \( C \)
+                    extraneous? Compute \( A^+ \) using only \( A \rightarrow B \) (if we remove C from RHS) and \( B
+                    \rightarrow C \)? Actually we need to check if \( A \rightarrow C \) is implied without \( A
+                    \rightarrow C \) itself. With \( A \rightarrow B \) and \( B \rightarrow C \), \( A \rightarrow C \)
+                    holds. So \( C \) is extraneous on right. Remove C: \( A \rightarrow B \).</li>
+                <li>Now F = \( \{ A \rightarrow B, B \rightarrow C \} \). Left sides are unique, no extraneous
+                    attributes. This is the canonical cover.</li>
+            </ol>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: “Canonical cover is unique.”</strong> (Correction: Different orders of
+                    elimination can produce different but equivalent covers.)</li>
+                <li><strong>Misconception: “You must process extraneous attributes on left before right.”</strong>
+                    (Correction: The algorithm repeats until no change, so order may affect intermediate steps but final
+                    result is still a canonical cover.)</li>
+            </ul>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • Canonical cover = minimal equivalent FD set.<br />
+                • Steps: union, remove extraneous left, remove extraneous right, repeat.<br />
+                • Used in 3NF synthesis algorithm.<br />
+                • Not unique, but all are equivalent.
+            </p>
+        </div>
+
+        <!-- Concept 16: Equivalence of FD Sets -->
+        <div class="concept-card">
+            <h2>16. Equivalence of FD Sets</h2>
+            <h3>Definition</h3>
+            <p>Two sets of functional dependencies \( F \) and \( G \) are <strong>equivalent</strong> if \( F^+ = G^+
+                \), i.e., they imply the same set of FDs. Equivalently, \( F \) covers \( G \) and \( G \) covers \( F
+                \).</p>
+
+            <h3>Explanation</h3>
+            <p>To test if \( F \) covers \( G \), for each FD \( \alpha \rightarrow \beta \) in \( G \), compute \(
+                \alpha^+ \) using \( F \) and check if \( \beta \subseteq \alpha^+ \). If all FDs in \( G \) are implied
+                by \( F \), then \( F \) covers \( G \). Do the reverse to check equivalence.</p>
+            <p>Equivalence is important when we transform a set of FDs into a canonical cover – we need to ensure the
+                new set is equivalent to the original.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>If two sets of rules always give the same conclusions, they are equivalent. Like two different ways to
+                write the same system of equations.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Cover</strong>: \( F \) covers \( G \) if every FD in \( G \) is implied by \( F \).</li>
+                <li><strong>Equivalent</strong>: \( F \) covers \( G \) and \( G \) covers \( F \).</li>
+            </ul>
+
+            <h3>Example</h3>
+            <p>\( F = \{ A \rightarrow B, B \rightarrow C \} \), \( G = \{ A \rightarrow C, A \rightarrow B, B
+                \rightarrow C \} \). Clearly \( F \) covers \( G \) because \( A \rightarrow C \) is implied by
+                transitivity. And \( G \) covers \( F \) trivially. So they are equivalent.</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: “If the sets have the same number of FDs, they are equivalent.”</strong>
+                    (Correction: No, the content matters, not count.)</li>
+            </ul>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • Equivalence is tested via attribute closure.<br />
+                • \( F \) covers \( G \) ⇔ for each \( \alpha \rightarrow \beta \) in G, \( \beta \subseteq \alpha^+_F
+                \).<br />
+                • Canonical cover is equivalent to original set.
+            </p>
+        </div>
+
+        <!-- Tutorial 5.4: Super Keys and Candidate Keys -->
+        <div class="concept-card">
+            <h2>Tutorial 5.4: Super Keys and Candidate Keys</h2>
+            <h3>Algorithm / Procedure</h3>
+            <p>To find all candidate keys of a relation \( R \) given a set of FDs \( F \):</p>
+            <ol>
+                <li>Start with single attributes. Compute their closure. If closure = all attributes, it is a candidate
+                    key.</li>
+                <li>If no single attribute is a candidate key, try pairs, then triples, etc., but only consider minimal
+                    sets that are not already supersets of a candidate key.</li>
+                <li>Alternatively, use the following systematic method:
+                    <ul>
+                        <li>Find all attributes that never appear on the right side of any FD. These must be in every
+                            candidate key (they are “prime” in the sense of mandatory).</li>
+                        <li>Start with that mandatory set. Compute its closure. If it is already a superkey, it is the
+                            only candidate key (or you need to check minimality).</li>
+                        <li>Otherwise, add attributes one by one from the remaining attributes, compute closure, and
+                            check for minimal superkey.</li>
+                    </ul>
+                </li>
+            </ol>
+            <p>To test if a set \( K \) is a candidate key: compute \( K^+ \); if it is all attributes, it is a
+                superkey. Then check if any proper subset of \( K \) is also a superkey. If not, \( K \) is a candidate
+                key.</p>
+
+            <h3>Worked Example 1</h3>
+            <p>Relation \( R(A,B,C,D) \), FDs: \( A \rightarrow B, B \rightarrow C, C \rightarrow D \).</p>
+            <p>Compute closures:</p>
+            <ul>
+                <li>\( A^+ = \{A, B, C, D\} \) → superkey. Check subsets: no single attribute other than A works. So
+                    candidate key = \( \{A\} \).</li>
+                <li>\( B^+ = \{B, C, D\} \) (not all).</li>
+                <li>\( C^+ = \{C, D\} \).</li>
+                <li>\( D^+ = \{D\} \).</li>
+                <li>Pairs like \( B,D \): \( \{B,D\}^+ = \{B,C,D\} \) (no A).</li>
+            </ul>
+            <p>Thus only candidate key is \( A \).</p>
+
+            <h3>Worked Example 2</h3>
+            <p>Relation \( R(A,B,C) \), FDs: \( AB \rightarrow C, C \rightarrow B \).</p>
+            <ul>
+                <li>Compute \( \{A\}^+ = \{A\} \) → no.</li>
+                <li>\( \{B\}^+ = \{B\} \) → no.</li>
+                <li>\( \{C\}^+ = \{C, B\} \) → no.</li>
+                <li>\( \{A,B\}^+ = \{A,B,C\} \) → superkey. Check subsets: \( A^+ \) not superkey, \( B^+ \) not
+                    superkey. So \( \{A,B\} \) is candidate key.</li>
+                <li>\( \{A,C\}^+ = \{A,C,B\} \) → superkey. Subset \( A^+ \) not, \( C^+ \) not. So \( \{A,C\} \) is
+                    also candidate key.</li>
+                <li>\( \{B,C\}^+ = \{B,C\} \) → no.</li>
+            </ul>
+            <p>Candidate keys: \( \{A,B\} \) and \( \{A,C\} \).</p>
+
+            <h3>Common Pitfalls</h3>
+            <ul>
+                <li>Forgetting that candidate keys must be minimal: if a set is a superkey, check its subsets.</li>
+                <li>Assuming that the attribute(s) that appear only on left side must be in every candidate key – true,
+                    but be careful: they might not be sufficient alone.</li>
+            </ul>
+
+            <h3>How to verify</h3>
+            <p>After finding candidate keys, ensure that every attribute in the relation is functionally determined by
+                each candidate key. Also ensure that no proper subset of a candidate key is a superkey.</p>
+
+            <h3>Practice Hints</h3>
+            <p>Use attribute closure repeatedly. Start with single attributes, then move to larger sets only if
+                necessary. For large relations, algorithms exist but manual computation for small schemas is typical in
+                exams.</p>
+        </div>
+
+        <!-- Summary Table -->
+        <div class="concept-card">
+            <h2>Lecture Summary</h2>
+            <table border="1" cellpadding="8">
+                <tr>
+                    <th>Concept</th>
+                    <th>Definition / Use</th>
+                </tr>
+                <tr>
+                    <td>Extraneous attribute</em></td>
+                    <td>Attribute that can be removed from an FD without changing closure</em></td>
+                </tr>
+                <tr>
+                    <td>Canonical cover</em></td>
+                    <td>Minimal equivalent FD set, no extraneous attributes, unique left sides</em></td>
+                </tr>
+                <tr>
+                    <td>Equivalence of FD sets</em></td>
+                    <td>\( F^+ = G^+ \), tested via coverage</em></td>
+                </tr>
+                <tr>
+                    <td>Candidate key</em></td>
+                    <td>Minimal superkey, found via attribute closure</em></td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="concept-card">
+            <h2>Quick Revision Checklist</h2>
+            <ul>
+                <li>☐ Define extraneous attribute and test left‑side vs right‑side.</li>
+                <li>☐ Compute canonical cover for a small FD set.</li>
+                <li>☐ Test equivalence of two FD sets using closure.</li>
+                <li>☐ Find all candidate keys of a relation using attribute closure.</li>
+                <li>☐ Verify minimality of candidate keys.</li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>

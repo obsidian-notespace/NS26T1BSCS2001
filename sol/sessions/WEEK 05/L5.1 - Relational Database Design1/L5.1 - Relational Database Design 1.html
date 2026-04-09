@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>DBMS — Week 05 — L5.1: Relational Database Design/1 — Study Notes</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}]})">
+        </script>
+    <link rel="stylesheet" href="../../../../scr/ui/ui.css" />
+</head>
+
+<body>
+    <div class="assignment-container">
+        <div class="gcb-assessment-title">WEEK 05 — L5.1: Relational Database Design/1 — Study Notes</div>
+        <div class="assessment-top-info">
+            <strong>Week:</strong> 05 |
+            <strong>Lecture:</strong> L5.1 |
+            <strong>Topics:</strong> Good Design Goals, Redundancy, Anomalies, Decomposition, Lossless Join, First
+            Normal Form<br />
+            <strong>Prerequisites:</strong> Basic understanding of tables, rows, columns, primary keys.<br />
+            <strong>Learning Outcomes:</strong> By the end of this lecture, you will be able to identify goals of good
+            design, explain why redundancy is harmful, define three types of anomalies, understand decomposition, define
+            lossless join, and apply First Normal Form.
+        </div>
+
+        <!-- Concept 1: Good Design Goals -->
+        <div class="concept-card">
+            <h2>1. Good Design Goals</h2>
+            <h3>Definition</h3>
+            <p>Good database design is a set of principles and practices that ensure the resulting relational schema
+                accurately represents the real‑world domain, avoids redundancy, supports data integrity, provides
+                efficient access, and is easy to understand and maintain.</p>
+
+            <h3>Explanation</h3>
+            <p>A database is not just a storage box; it is a model of some part of the real world (e.g., a university, a
+                bank, a hospital). The design must reflect the actual structure and constraints of that world. For
+                example, if in reality each department has exactly one building, the design must enforce that. If the
+                real world changes, the design should be extensible.</p>
+            <p>Because a database will be used over a long period, the design must handle all expected data that may
+                appear in the future. This is called <strong>adequacy over time</strong>. A design that works for 100
+                records might break when 1 million records are added if indexing or normalization is poor.</p>
+            <p>Redundant storage (storing the same fact multiple times) wastes disk space, but more importantly, it
+                leads to <strong>anomalies</strong> when data is updated. A good design aims to eliminate redundancy as
+                much as possible, without harming other goals.</p>
+            <p>Efficiency is also crucial: queries should return results quickly. However, there is often a trade‑off:
+                removing all redundancy (normalizing) sometimes increases the number of joins, which can slow down
+                reads. Therefore, designers sometimes intentionally introduce some redundancy for performance reasons
+                (denormalization).</p>
+            <p>Integrity constraints (like foreign keys, check constraints, and functional dependencies) must be
+                supportable. A good design makes it easy to enforce these constraints within the database itself, not in
+                application code.</p>
+            <p>Finally, the design must be clean, consistent, and easy to understand. Other developers (and your future
+                self) will need to maintain it. Clear naming, consistent use of keys, and following normal forms help
+                achieve this.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Think of designing a database like designing a house. You want it to match the blueprints (real world),
+                be able to accommodate future furniture (adequacy), avoid duplicate wiring or pipes (redundancy), be
+                easy to move around (efficient access), have strong structural integrity (integrity), and be simple
+                enough that any electrician can understand it (clean design). Sometimes you might add an extra socket
+                (redundancy) to avoid having to run a long extension cord (joins) – that's a trade‑off.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Adequacy</strong>: The ability of a design to represent all expected data over time.</li>
+                <li><strong>Redundancy</strong>: Storing the same data multiple times in a database.</li>
+                <li><strong>Anomaly</strong>: An inconsistency or problem that can arise when modifying redundant data.
+                </li>
+                <li><strong>Denormalization</strong>: Intentionally adding redundancy to improve read performance.</li>
+                <li><strong>Integrity Constraint</strong>: A rule that data must satisfy (e.g., NOT NULL, UNIQUE,
+                    FOREIGN KEY).</li>
+            </ul>
+
+            <h3>Formulas (if any)</h3>
+            <p>There is no formula, but the trade‑off can be expressed as: <br />
+                \[
+                \text{Performance} = \frac{\text{Read speed}}{\text{Write overhead}} \quad \text{but with normalization,
+                writes become faster, reads may become slower.}
+                \]</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception 1: "Normalization always improves performance."</strong><br />
+                    (Correction: Normalization reduces redundancy, which improves update performance and eliminates
+                    anomalies, but it can slow down complex read queries that require many joins.)</li>
+                <li><strong>Misconception 2: "Redundancy is only a storage issue."</strong><br />
+                    (Correction: The bigger problem is anomalies. Storage is cheap; data inconsistency is expensive.)
+                </li>
+                <li><strong>Misconception 3: "A good design must satisfy all goals equally."</strong><br />
+                    (Correction: Goals often conflict. Designers must make trade‑offs based on application needs.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li>Read‑only data warehouses: high redundancy can be acceptable because no updates occur, so anomalies
+                    are not a risk.</li>
+                <li>Very high‑frequency transaction systems: may sacrifice some normalization to avoid excessive join
+                    overhead.</li>
+            </ul>
+
+            <h3>Real‑world Application</h3>
+            <p>E‑commerce platforms like Amazon use highly normalized schemas for order processing (to avoid anomalies)
+                but may use denormalized caches for product recommendations (to improve speed).</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • Good design goals: real‑world reflection, adequacy, no redundancy, efficient access, integrity
+                support, clean & understandable.<br />
+                • Redundancy leads to anomalies, not just wasted space.<br />
+                • There is a trade‑off between normalization (eliminates anomalies) and query performance (may require
+                joins).<br />
+                • Denormalization is sometimes used deliberately.<br />
+                • Always design with future data and maintenance in mind.
+            </p>
+        </div>
+
+        <!-- Concept 2: Redundancy and Anomalies -->
+        <div class="concept-card">
+            <h2>2. Redundancy and Anomalies</h2>
+            <h3>Definition</h3>
+            <p><strong>Redundancy</strong> occurs when the same data item is stored multiple times in a database.
+                <strong>Anomalies</strong> are problems that arise when inserting, deleting, or updating redundant data,
+                leading to inconsistent or incomplete information.
+            </p>
+
+            <h3>Explanation</h3>
+            <p>Consider a single table that combines instructor and department information:
+                <code>instructor(ID, name, dept_name, salary, building, budget)</code>. If a department has multiple
+                instructors, the building and budget are repeated for each instructor. That is redundancy.
+            </p>
+            <p><strong>Insertion anomaly</strong>: You cannot add a new department that has no instructors yet because
+                the table requires an instructor ID (primary key). You would have to insert a dummy instructor or leave
+                fields null, which violates design principles.</p>
+            <p><strong>Deletion anomaly</strong>: If you delete the last instructor of a department, you also lose the
+                department's building and budget information, even though the department still exists in reality.</p>
+            <p><strong>Update anomaly</strong>: If the budget of a department changes, you must update every row
+                containing that department. If you miss one, the database becomes inconsistent – some rows show the old
+                budget, some the new.</p>
+            <p>These anomalies are the primary motivation for normalization.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Imagine a spreadsheet where you list each sale together with the customer's full address. If a customer
+                moves, you have to update every row where that customer appears. That's an update anomaly. If you delete
+                the last sale of a customer, you lose their address – deletion anomaly. You cannot add a new customer
+                without a sale – insertion anomaly. The solution is to separate customers and sales into two tables.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Insertion anomaly</strong>: Inability to insert a record without adding unrelated data.</li>
+                <li><strong>Deletion anomaly</strong>: Unintended loss of information when deleting a record.</li>
+                <li><strong>Update anomaly</strong>: Inconsistency caused by updating some but not all copies of
+                    redundant data.</li>
+            </ul>
+
+            <h3>Formulas / Examples</h3>
+            <p><strong>Example table (instructor + department):</strong></p>
+            <table border="1" cellpadding="5">
+                <tr>
+                    <th>ID</th>
+                    <th>name</th>
+                    <th>dept_name</th>
+                    <th>salary</th>
+                    <th>building</th>
+                    <th>budget</th>
+                </tr>
+                <tr>
+                    <td>101</td>
+                    <td>Einstein</td>
+                    <td>Physics</td>
+                    <td>95000</td>
+                    <td>Watson</td>
+                    <td>500000</td>
+                </tr>
+                <tr>
+                    <td>102</td>
+                    <td>Gold</td>
+                    <td>Physics</td>
+                    <td>87000</td>
+                    <td>Watson</td>
+                    <td>500000</td>
+                </tr>
+            </table>
+            <p>Redundancy: building and budget repeated. Update anomaly: changing budget requires updating both rows.
+                Insertion anomaly: cannot add a new department "Math" without an instructor. Deletion anomaly: deleting
+                both instructors loses Physics department info.</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: "Anomalies only happen with very large data."</strong> (Correction: Anomalies
+                    can happen even with two rows, as shown above.)</li>
+                <li><strong>Misconception: "Null values solve insertion anomalies."</strong> (Correction: Nulls can be
+                    used but they complicate queries and are not a clean solution; they also violate entity integrity if
+                    the primary key is null.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li>If a department has zero instructors, the combined table cannot represent it at all – insertion
+                    anomaly is absolute.</li>
+                <li>If a department has only one instructor, deletion anomaly still occurs because deleting that one row
+                    loses the department.</li>
+            </ul>
+
+            <h3>Real‑world Application</h3>
+            <p>Banking systems avoid anomalies by separating customer accounts from transaction histories. A customer's
+                address is stored once, not repeated in every transaction row.</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • Three anomalies: insertion, deletion, update.<br />
+                • Redundancy is the root cause.<br />
+                • Anomalies lead to data inconsistency and loss of information.<br />
+                • Normalization eliminates anomalies by decomposing tables.<br />
+                • Always test your design with example data to detect potential anomalies.
+            </p>
+        </div>
+
+        <!-- Concept 3: Decomposition and Lossless Join -->
+        <div class="concept-card">
+            <h2>3. Decomposition and Lossless Join</h2>
+            <h3>Definition</h3>
+            <p><strong>Decomposition</strong> is the process of splitting a relation into two or more smaller relations.
+                A decomposition is <strong>lossless join</strong> if, after decomposing, the natural join of the smaller
+                relations yields exactly the original relation (no spurious tuples and no lost tuples).</p>
+
+            <h3>Explanation</h3>
+            <p>When we decompose a table to remove redundancy, we must ensure we can later reconstruct the original
+                information. If we decompose carelessly, we may get extra tuples when joining back – this is called a
+                <strong>lossy decomposition</strong> (or lossy join).
+            </p>
+            <p>Example: Decompose the instructor‑department table into
+                <code>instructor1(ID, name, dept_name, salary)</code> and
+                <code>department(dept_name, building, budget)</code>. This decomposition is lossless because the common
+                attribute <code>dept_name</code> is a key in the <code>department</code> relation. When we join, we
+                recover exactly the original rows.
+            </p>
+            <p>However, if we decompose into <code>R1(ID, name, building)</code> and
+                <code>R2(dept_name, salary, budget)</code> with no common attribute, the join would be a Cartesian
+                product, producing many spurious rows – lossy.
+            </p>
+            <p>The formal condition for a binary decomposition (R into R1 and R2) to be lossless is that the
+                intersection of R1 and R2 must be a superkey of either R1 or R2 (or both).</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Imagine a jigsaw puzzle. Decomposing is like breaking the puzzle into pieces. Lossless decomposition
+                means you can reassemble the puzzle perfectly. Lossy decomposition means you end up with extra pieces
+                that don't belong or missing pieces.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Lossless join decomposition</strong>: Join of decomposed relations returns the original
+                    relation.</li>
+                <li><strong>Lossy decomposition</strong>: Join returns more tuples than the original (spurious tuples).
+                </li>
+                <li><strong>Superkey</strong>: A set of attributes that uniquely identifies a tuple.</li>
+            </ul>
+
+            <h3>Formulas</h3>
+            <p>For R decomposed into R1 and R2:<br />
+                Let \( I = R1 \cap R2 \).<br />
+                The decomposition is lossless if \( I \rightarrow R1 \) or \( I \rightarrow R2 \) (i.e., I is a superkey
+                of R1 or R2).</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: "Any decomposition that removes redundancy is lossless."</strong>
+                    (Correction: Not true; you must check the join condition.)</li>
+                <li><strong>Misconception: "If the intersection is a key in both, it's lossless."</strong> (Correction:
+                    It's sufficient that it is a key in at least one.)</li>
+                <li><strong>Misconception: "Lossless join is the only property needed."</strong> (Correction: Dependency
+                    preservation is also important, but lossless join is mandatory.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li>If the intersection is empty, the decomposition is always lossy (unless one of the relations is
+                    empty, which is trivial).</li>
+                <li>If the intersection is a superkey of both, it's still lossless.</li>
+            </ul>
+
+            <h3>Real‑world Application</h3>
+            <p>Online shopping carts: the cart table is often decomposed into cart_items and products. Joining them must
+                produce the exact cart content – lossless decomposition is critical.</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • Decomposition must be lossless to preserve information.<br />
+                • For binary decomposition, the common attribute(s) must be a superkey of at least one side.<br />
+                • Lossy decompositions create spurious tuples and are unacceptable.<br />
+                • Always verify lossless property before implementing a decomposition.<br />
+                • Lossless join is necessary but not sufficient for a good design (dependency preservation also
+                matters).
+            </p>
+        </div>
+
+        <!-- Concept 4: First Normal Form (1NF) -->
+        <div class="concept-card">
+            <h2>4. First Normal Form (1NF)</h2>
+            <h3>Definition</h3>
+            <p>A relation is in <strong>First Normal Form (1NF)</strong> if the domain of every attribute is atomic
+                (indivisible) and every attribute contains only a single value (no multi‑valued attributes).</p>
+
+            <h3>Explanation</h3>
+            <p>Atomic means that the attribute cannot be broken down into smaller meaningful parts within the database.
+                For example, a person's name can be split into first name, middle name, last name – so storing a single
+                "name" attribute violates 1NF if you need to access parts separately. However, if you treat the whole
+                name as an indivisible string, it can be atomic – atomicity depends on usage.</p>
+            <p>Multi‑valued attributes (e.g., a person having multiple phone numbers) also violate 1NF. The standard
+                solution is to create a separate table for the multi‑valued attribute, linked by a foreign key.</p>
+            <p>All relational database management systems (RDBMS) require tables to be in 1NF by design – you cannot
+                create a table with a column that contains a set of values directly. However, you could violate 1NF by
+                using delimited strings (e.g., "111-222,333-444") but that is strongly discouraged.</p>
+
+            <h3>Intuition / Mental Model</h3>
+            <p>Think of each cell in a table as a single, indivisible piece of data – like a number or a simple text
+                string. If a cell can contain a list or a composite value (like "John Smith" where you sometimes need
+                "John" separately), then you are not in 1NF.</p>
+
+            <h3>Key Definitions</h3>
+            <ul>
+                <li><strong>Atomic domain</strong>: A domain whose elements are considered indivisible by the database.
+                </li>
+                <li><strong>Multi‑valued attribute</strong>: An attribute that can have multiple values for a single
+                    entity (e.g., phone numbers).</li>
+                <li><strong>Composite attribute</strong>: An attribute composed of multiple smaller attributes (e.g.,
+                    address as street, city, zip).</li>
+            </ul>
+
+            <h3>Formulas / Examples</h3>
+            <p><strong>Not in 1NF:</strong></p>
+            <table border="1">
+                <tr>
+                    <th>CustomerID</th>
+                    <th>Name</th>
+                    <th>PhoneNumbers</th>
+                </tr>
+                <tr>
+                    <td>1</td>
+                    <td>John Doe</td>
+                    <td>555-1234, 555-5678</td>
+                </tr>
+            </table>
+            <p><strong>Converted to 1NF (separate table):</strong></p>
+            <p>Customer(1, John Doe) and CustomerPhone(1, 555-1234), (1, 555-5678).</p>
+
+            <h3>Common Mistakes</h3>
+            <ul>
+                <li><strong>Misconception: "Any string is atomic."</strong> (Correction: Atomicity depends on usage. If
+                    you extract substrings in queries, it's not atomic.)</li>
+                <li><strong>Misconception: "Using multiple columns (Phone1, Phone2) solves the multi‑value
+                        problem."</strong> (Correction: It limits the number of values, wastes space with nulls, and
+                    makes queries complex – separate table is better.)</li>
+            </ul>
+
+            <h3>Edge Cases</h3>
+            <ul>
+                <li>Course codes like "CS101" – if you never need to extract "CS", it can be considered atomic;
+                    otherwise, split into department_code and course_number.</li>
+                <li>JSON/XML columns in modern databases – they are not atomic in the relational sense, but some systems
+                    treat them as special types. For normalization, they violate 1NF.</li>
+            </ul>
+
+            <h3>Real‑world Application</h3>
+            <p>Every properly designed relational database automatically ensures 1NF by using separate tables for
+                multi‑valued relationships (e.g., a "Tags" table linked to a "Posts" table in a blog).</p>
+
+            <h3>Key Takeaways</h3>
+            <p>
+                • 1NF requires atomic, single‑valued attributes.<br />
+                • All tables in a standard RDBMS are in 1NF by definition.<br />
+                • Multi‑valued attributes must be moved to a separate table.<br />
+                • Composite attributes should be split if their parts are queried individually.<br />
+                • 1NF is the foundation for all higher normal forms.
+            </p>
+        </div>
+
+        <!-- Summary Table -->
+        <div class="concept-card">
+            <h2>Lecture Summary</h2>
+            <table border="1" cellpadding="8" style="border-collapse: collapse; width: 100%;">
+                <tr>
+                    <th>Concept</th>
+                    <th>Key Definition</th>
+                    <th>Formula / Condition</th>
+                    <th>Common Mistake</th>
+                </tr>
+                <tr>
+                    <td>Good Design Goals</td>
+                    <td>Real-world representation, no redundancy, integrity, efficiency, clarity</td>
+                    <td>Trade-offs exist</td>
+                    <td>Assuming normalization always improves performance</td>
+                </tr>
+                <tr>
+                    <td>Redundancy</td>
+                    <td>Multiple copies of same data</td>
+                    <td>Leads to anomalies</td>
+                    <td>Thinking redundancy only wastes space</td>
+                </tr>
+                <tr>
+                    <td>Anomalies</td>
+                    <td>Insertion, deletion, update problems</td>
+                    <td>Eliminated by decomposition</td>
+                    <td>Confusing insertion with update anomaly</td>
+                </tr>
+                <tr>
+                    <td>Lossless Join</td>
+                    <td>Join returns original relation</td>
+                    <td>Intersection must be superkey of one side</td>
+                    <td>Assuming any decomposition is lossless</td>
+                </tr>
+                <tr>
+                    <td>First Normal Form</td>
+                    <td>Atomic, single-valued domains</td>
+                    <td>No composite or multi-valued attributes</td>
+                    <td>Believing strings are always atomic</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Quick Revision Checklist -->
+        <div class="concept-card">
+            <h2>Quick Revision Checklist</h2>
+            <ul>
+                <li>☐ List all good design goals.</li>
+                <li>☐ Define redundancy and explain why it is harmful.</li>
+                <li>☐ Give an example of each anomaly.</li>
+                <li>☐ State the condition for lossless join decomposition.</li>
+                <li>☐ Explain what atomic domain means and give examples.</li>
+                <li>☐ Convert a non‑1NF table to 1NF.</li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>
