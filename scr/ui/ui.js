@@ -181,7 +181,9 @@
                 'begin', 'end', 'mathbf', 'mathbb', 'mathcal', 'overline',
                 'langle', 'rangle', 'sqrt', 'cdot', 'sum', 'alpha', 'beta',
                 'gamma', 'delta', 'epsilon', 'theta', 'lambda', 'mu', 'pi',
-                'sigma', 'phi', 'psi', 'omega', 'neq', 'approx'
+                'sigma', 'phi', 'psi', 'omega', 'neq', 'approx',
+                'rightarrow', 'leftarrow', 'leftrightarrow',
+                'Rightarrow', 'Leftarrow', 'Leftrightarrow'
             ];
 
             for (const cmd of commands) {
@@ -195,7 +197,7 @@
         function wrapLikelyMathParens(text) {
             if (!text || text.includes('\\(') || text.includes('\\[')) return text;
             return String(text).replace(/\(([^()]+)\)/g, (match, inner) => {
-                const looksMathy = /[{}_^]|\b(begin|end|mathbf|mathbb|mathcal|langle|rangle|overline|sqrt|cdot|sum|alpha|beta|gamma|delta|theta|neq|approx)\b/.test(inner);
+                const looksMathy = /[{}_^]|\b(begin|end|mathbf|mathbb|mathcal|langle|rangle|overline|sqrt|cdot|sum|alpha|beta|gamma|delta|theta|neq|approx|rightarrow|leftarrow|leftrightarrow|Rightarrow|Leftarrow|Leftrightarrow)\b/.test(inner);
                 if (!looksMathy) return match;
                 return `\\(${normalizeMathSegment(inner)}\\)`;
             });
