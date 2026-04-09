@@ -159,6 +159,7 @@
                     { left: '\\(', right: '\\)', display: false },
                     { left: '\\[', right: '\\]', display: true }
                 ],
+                output: 'html',
                 processEscapes: true,
                 ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
                 throwOnError: false,
@@ -174,42 +175,275 @@
             if (!segment) return segment;
             let out = String(segment);
 
-            // Recover common control-character corruption from JS strings like "\begin" -> "\begin" with \b consumed.
-            out = out.replace(/[\u0008\u000C]/g, '\\');
+            // Recover LaTeX commands corrupted by JS escapes in plain strings.
+            // Examples: "\begin" -> "\u0008egin", "\frac" -> "\u000Crac", "\theta" -> "\u0009heta".
+            out = out
+                .replace(/\u0008/g, '\\b')
+                .replace(/\u0009/g, '\\t')
+                .replace(/\u000A/g, '\\n')
+                .replace(/\u000B/g, '\\v')
+                .replace(/\u000C/g, '\\f')
+                .replace(/\u000D/g, '\\r');
+
+            // Recover matrix row separators that were written as "\\" in JS source,
+            // which become a single backslash at runtime.
+            if (/\\begin\{[a-z*]+\}/i.test(out)) {
+                out = out.replace(/\\\s+/g, '\\\\ ');
+            }
 
             const commands = [
-                'begin', 'end', 'mathbf', 'mathbb', 'mathcal', 'overline',
-                'langle', 'rangle', 'sqrt', 'cdot', 'sum', 'alpha', 'beta',
+                'begin', 'end', 'mathbf', 'mathbb', 'mathcal', 'operatorname',
+                'overline', 'bar', 'frac', 'sqrt', 'cdot', 'sum', 'prod', 'det', 'arg', 'diag',
+                'langle', 'rangle', 'alpha', 'beta',
                 'gamma', 'delta', 'epsilon', 'theta', 'lambda', 'mu', 'pi',
-                'sigma', 'phi', 'psi', 'omega', 'neq', 'approx',
+                'sigma', 'phi', 'psi', 'omega', 'neq', 'leq', 'geq', 'approx',
+                'notin', 'times', 'infty',
                 'rightarrow', 'leftarrow', 'leftrightarrow',
                 'Rightarrow', 'Leftarrow', 'Leftrightarrow'
             ];
 
             for (const cmd of commands) {
                 const pattern = new RegExp(`(^|[^\\\\])(${cmd})(?=\\b)`, 'g');
-                out = out.replace(pattern, `$1\\\\${cmd}`);
+                out = out.replace(pattern, `$1\\${cmd}`);
             }
+
+            // Normalize membership written as plain text ("in") inside math.
+            // Example: "x, y in \\mathbb{C}^n" -> "x, y \\in \\mathbb{C}^n".
+            out = out.replace(
+                /([A-Za-z0-9_}\)\]])\s+in\s+(?=(\\mathbb|\\mathcal|\\mathbf|\\mathsf|\\mathfrak|[A-Z]))/g,
+                '$1 \\in '
+            );
+
+            // Repair malformed closing angle command caused by escaped control chars
+            // in source strings (e.g., "\\langle x,x \\rangle" becoming "\\langle x,x \\nangle").
+            out = out.replace(/\\nangle\b/g, '\\rangle');
 
             return out;
         }
 
         function wrapLikelyMathParens(text) {
             if (!text || text.includes('\\(') || text.includes('\\[')) return text;
-            return String(text).replace(/\(([^()]+)\)/g, (match, inner) => {
-                const looksMathy = /[{}_^]|\b(begin|end|mathbf|mathbb|mathcal|langle|rangle|overline|sqrt|cdot|sum|alpha|beta|gamma|delta|theta|neq|approx|rightarrow|leftarrow|leftrightarrow|Rightarrow|Leftarrow|Leftrightarrow)\b/.test(inner);
-                if (!looksMathy) return match;
-                return `\\(${normalizeMathSegment(inner)}\\)`;
-            });
+            const source = String(text);
+            let result = '';
+            let depth = 0;
+            let blockStart = -1;
+            let lastCommitted = 0;
+
+            function isLikelyMath(innerText) {
+                const normalizedInner = normalizeMathSegment(innerText);
+                const looksMathy =
+                    /[{}_^]|\\[a-zA-Z]+/.test(normalizedInner) ||
+                    /\b[a-zA-Z]\s*=\s*[^=]/.test(normalizedInner) ||
+                    /\b(i|pi|theta|alpha|beta|gamma|delta|lambda|mu|sigma|phi|psi|omega|sqrt|frac|bar|overline|mathbb|operatorname|langle|rangle|begin|end)\b/.test(normalizedInner);
+
+                return {
+                    normalizedInner,
+                    looksMathy
+                };
+            }
+
+            for (let i = 0; i < source.length; i++) {
+                const ch = source[i];
+
+                if (ch === '(') {
+                    if (depth === 0) {
+                        result += source.slice(lastCommitted, i);
+                        blockStart = i;
+                    }
+                    depth++;
+                    continue;
+                }
+
+                if (ch === ')' && depth > 0) {
+                    depth--;
+                    if (depth === 0 && blockStart !== -1) {
+                        const inner = source.slice(blockStart + 1, i);
+                        const { normalizedInner, looksMathy } = isLikelyMath(inner);
+                        result += looksMathy ? `\\(${normalizedInner}\\)` : source.slice(blockStart, i + 1);
+                        lastCommitted = i + 1;
+                        blockStart = -1;
+                    }
+                }
+            }
+
+            if (lastCommitted === 0) {
+                return source;
+            }
+
+            if (depth > 0 && blockStart !== -1) {
+                result += source.slice(blockStart);
+                return result;
+            }
+
+            if (lastCommitted < source.length) {
+                result += source.slice(lastCommitted);
+            }
+
+            return result;
         }
 
         function normalizeMathText(value) {
             if (typeof value !== 'string') return value;
             let out = value;
+            if (/<(gcb-math|div|span|p|br|ol|ul|li|table|thead|tbody|tr|th|td|strong|em|b|i|u|sub|sup|code|pre)\b/i.test(out)) {
+                return out;
+            }
             out = out.replace(/\\\((.*?)\\\)/gs, (_, inner) => `\\(${normalizeMathSegment(inner)}\\)`);
             out = out.replace(/\\\[(.*?)\\\]/gs, (_, inner) => `\\[${normalizeMathSegment(inner)}\\]`);
             out = wrapLikelyMathParens(out);
             return out;
+        }
+
+        function isLikelyMathOption(text) {
+            const source = String(text || '').trim();
+            if (!source) return false;
+
+            // Command-based math is definitely math.
+            if (/\\[a-zA-Z]+/.test(source)) return true;
+
+            // Typical complex number forms: a+bi, a-bi, i, -i.
+            if (/^[-+]?\d+(?:\.\d+)?\s*[+\-]\s*\d+(?:\.\d+)?\s*i$/i.test(source)) return true;
+            if (/^[-+]?i$/i.test(source)) return true;
+
+            // Algebraic/numeric expressions containing operators.
+            if (/[=+\-*/^]/.test(source) && /[0-9a-zA-Z]/.test(source) && !/[a-z]{4,}/i.test(source)) return true;
+
+            return false;
+        }
+
+        function normalizeOptionMathText(value) {
+            if (typeof value !== 'string') return value;
+            let out = normalizeMathText(value);
+            if (out.includes('\\(') || out.includes('\\[') || out.includes('$$') || out.includes('$')) {
+                return out;
+            }
+
+            const trimmed = out.trim();
+            const hasOuterParens = trimmed.length >= 2 && trimmed.startsWith('(') && trimmed.endsWith(')');
+            const candidate = hasOuterParens ? trimmed.slice(1, -1).trim() : trimmed;
+            if (!isLikelyMathOption(candidate)) return out;
+
+            const wrapped = `\\(${normalizeMathSegment(candidate)}\\)`;
+            return wrapped;
+        }
+
+        function looksLikeStructuredHtmlContent(value) {
+            return /<(gcb-math|div|span|p|br|ol|ul|li|table|thead|tbody|tr|th|td|strong|em|b|i|u|sub|sup|code|pre)\b/i.test(String(value || ''));
+        }
+
+        function sanitizeRichHtml(content) {
+            const template = document.createElement('template');
+            template.innerHTML = String(content || '');
+
+            const allowedTags = new Set([
+                'div', 'span', 'p', 'br', 'ol', 'ul', 'li',
+                'table', 'thead', 'tbody', 'tr', 'th', 'td',
+                'strong', 'em', 'b', 'i', 'u', 'sub', 'sup',
+                'code', 'pre'
+            ]);
+
+            const allowedClasses = new Set([
+                'inline-equation',
+                'display-equation',
+                'equation'
+            ]);
+
+            function sanitizeClassName(className) {
+                const tokens = String(className || '')
+                    .split(/\s+/)
+                    .map(token => token.trim())
+                    .filter(Boolean)
+                    .filter(token => allowedClasses.has(token));
+                return tokens.join(' ');
+            }
+
+            function getKatexTex(node) {
+                if (!node || node.nodeType !== Node.ELEMENT_NODE) return '';
+                const annotation = node.matches('annotation[encoding="application/x-tex"]')
+                    ? node
+                    : node.querySelector('annotation[encoding="application/x-tex"]');
+                if (!annotation) return '';
+                return normalizeMathSegment((annotation.textContent || '').trim());
+            }
+
+            function sanitizeNode(node) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    return escapeHtml(normalizeMathText(node.textContent || ''));
+                }
+
+                if (node.nodeType !== Node.ELEMENT_NODE) {
+                    return '';
+                }
+
+                const tag = node.tagName.toLowerCase();
+
+                if (tag === 'script' || tag === 'style' || tag === 'iframe' || tag === 'object' || tag === 'embed') {
+                    return '';
+                }
+
+                const isKatexDisplay = node.classList.contains('katex-display') || !!node.closest('.katex-display');
+                if (node.classList.contains('katex-display') || node.classList.contains('katex') || node.classList.contains('katex-mathml')) {
+                    const tex = getKatexTex(node);
+                    if (tex) {
+                        return isKatexDisplay ? `\\[${tex}\\]` : `\\(${tex}\\)`;
+                    }
+                }
+
+                if (node.classList.contains('katex-html') || node.closest('.katex-html')) {
+                    return '';
+                }
+
+                if (tag === 'annotation' && String(node.getAttribute('encoding') || '').toLowerCase() === 'application/x-tex') {
+                    return '';
+                }
+
+                if (tag === 'gcb-math') {
+                    const latex = normalizeMathSegment((node.textContent || '').trim());
+                    if (!latex) return '';
+                    const isDisplay = node.hasAttribute('display') || node.classList.contains('display');
+                    return isDisplay ? `\\[${latex}\\]` : `\\(${latex}\\)`;
+                }
+
+                const childrenHtml = Array.from(node.childNodes).map(sanitizeNode).join('');
+
+                if (!allowedTags.has(tag)) {
+                    return childrenHtml;
+                }
+
+                if (tag === 'br') {
+                    return '<br>';
+                }
+
+                let attrs = '';
+                if (tag === 'span' || tag === 'div' || tag === 'p') {
+                    const cls = sanitizeClassName(node.getAttribute('class'));
+                    if (cls) {
+                        attrs += ` class="${escapeHtml(cls)}"`;
+                    }
+                }
+
+                return `<${tag}${attrs}>${childrenHtml}</${tag}>`;
+            }
+
+            return Array.from(template.content.childNodes).map(sanitizeNode).join('');
+        }
+
+        function renderTextWithMathMarkup(value) {
+            const text = String(value || '');
+            if (!text) return '';
+            if (looksLikeStructuredHtmlContent(text)) {
+                return sanitizeRichHtml(text);
+            }
+            return escapeHtml(normalizeMathText(text));
+        }
+
+        function renderOptionContent(value) {
+            const text = String(value || '');
+            if (!text) return '';
+            if (looksLikeStructuredHtmlContent(text)) {
+                return sanitizeRichHtml(text);
+            }
+            return escapeHtml(normalizeOptionMathText(text));
         }
 
         function normalizeQuestionMath(question) {
@@ -336,13 +570,23 @@
                 .join('');
         }
 
-            function sanitizeSolutionHtml(content) {
-                return String(content || '').replace(/`([^`]+)`/g, (_, code) => `<code>${escapeHtml(code)}</code>`);
+        function sanitizeSolutionHtml(content) {
+            const text = String(content || '');
+            if (!text) return '';
+            if (looksLikeStructuredHtmlContent(text)) {
+                return sanitizeRichHtml(text);
             }
+            return renderInlineMarkdown(normalizeMathText(text)).replace(/\n/g, '<br>');
+        }
 
         // Render plain text with support for markdown-style tables used in question statements.
         function renderQuestionText(text) {
             const trimmedWholeText = String(text || '').trim();
+
+            if (looksLikeStructuredHtmlContent(trimmedWholeText)) {
+                return sanitizeRichHtml(trimmedWholeText);
+            }
+
             if (/^<[^>]+>[\s\S]*<\/[a-z][^>]*>$/i.test(trimmedWholeText) && !trimmedWholeText.includes('\n')) {
                 return renderCodeBlock(trimmedWholeText, 'html');
             }
@@ -503,19 +747,21 @@
             let html = '';
             if (q.type === 'mcq') {
                 for (let c = 0; c < q.options.length; c++) {
+                    const optionText = renderOptionContent(q.options[c]);
                     html += `
                         <div class="gcb-mcq-choice" data-choice-idx="${c}">
                             <input type="radio" name="q_${idx}" value="${c}" id="q${idx}_c${c}">
-                            <label for="q${idx}_c${c}">${escapeHtml(q.options[c])}</label>
+                            <label for="q${idx}_c${c}">${optionText}</label>
                         </div>
                     `;
                 }
             } else if (q.type === 'msq') {
                 for (let c = 0; c < q.options.length; c++) {
+                    const optionText = renderOptionContent(q.options[c]);
                     html += `
                         <div class="gcb-mcq-choice" data-choice-idx="${c}">
                             <input type="checkbox" name="q_${idx}" value="${c}" id="q${idx}_c${c}">
-                            <label for="q${idx}_c${c}">${escapeHtml(q.options[c])}</label>
+                            <label for="q${idx}_c${c}">${optionText}</label>
                         </div>
                     `;
                 }
@@ -535,14 +781,14 @@
             } else if (q.type === 'assertionreason') {
                 html = `
                     <div class="assertion-group">
-                        <strong>Assertion (A):</strong> ${escapeHtml(q.assertion)}<br>
-                        <strong>Reason (R):</strong> ${escapeHtml(q.reason)}
+                        <strong>Assertion (A):</strong> ${renderTextWithMathMarkup(q.assertion)}<br>
+                        <strong>Reason (R):</strong> ${renderTextWithMathMarkup(q.reason)}
                     </div>
                     <div style="margin-top: 12px;">
                         ${q.options.map((opt, oidx) => `
                             <div class="gcb-mcq-choice" data-choice-idx="${oidx}">
                                 <input type="radio" name="q_${idx}" value="${oidx}" id="q${idx}_c${oidx}">
-                                <label for="q${idx}_c${oidx}">${escapeHtml(opt)}</label>
+                                <label for="q${idx}_c${oidx}">${renderOptionContent(opt)}</label>
                             </div>
                         `).join('')}
                     </div>
@@ -550,7 +796,7 @@
             } else if (q.type === 'numstatements') {
                 html = `
                     <ul class="statement-list">
-                        ${q.statements.map(stmt => `<li>${escapeHtml(stmt)}</li>`).join('')}
+                        ${q.statements.map(stmt => `<li>${renderTextWithMathMarkup(stmt)}</li>`).join('')}
                     </ul>
                     <div style="margin-top: 8px;">
                         <input type="number" id="q${idx}_num" name="q_${idx}" style="padding: 8px; width: 100px; border: 1px solid #ccc; border-radius: 8px;" placeholder="Count">
@@ -561,11 +807,11 @@
                     <table class="match-table">
                         ${q.leftItems.map((left, lidx) => `
                             <tr>
-                                <td><strong>${escapeHtml(left)}</strong></td>
+                                <td><strong>${renderTextWithMathMarkup(left)}</strong></td>
                                 <td>
                                     <select id="match_${idx}_${lidx}" data-match-index="${lidx}">
                                         <option value="">-- Select --</option>
-                                        ${q.rightItems.map((right, ridx) => `<option value="${ridx}">${escapeHtml(right)}</option>`).join('')}
+                                        ${q.rightItems.map((right, ridx) => `<option value="${ridx}">${escapeHtml(String(right || ''))}</option>`).join('')}
                                     </select>
                                 </td>
                             </tr>
@@ -586,6 +832,15 @@
             if (q.type === 'numstatements') return q.correctCount.toString();
             if (q.type === 'match') return q.leftItems.map((_, i) => `${q.leftItems[i]} → ${q.rightItems[q.correctMatches[i]]}`).join('; ');
             return '';
+        }
+
+        function renderCorrectTextContent(value) {
+            const text = String(value || '');
+            if (!text) return '';
+            if (looksLikeStructuredHtmlContent(text)) {
+                return sanitizeRichHtml(text);
+            }
+            return escapeHtml(normalizeMathText(text));
         }
 
         // Helper to get user selected values
@@ -657,7 +912,7 @@
                     <div id="sol_${idx}" class="solution-area">
                         <div class="feedback-message" id="feedback_${idx}"></div>
                         <div><span class="correct-badge">Correct Option(s):</span> 
-                            <span class="correct-options-text"><strong>${escapeHtml(correctText)}</strong></span>
+                            <span class="correct-options-text"><strong>${renderCorrectTextContent(correctText)}</strong></span>
                         </div>
                         <div class="solution-text"><strong>Detailed Solution</strong><br><div class="step">${solutionContent}</div></div>
                     </div>
